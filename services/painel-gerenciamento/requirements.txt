@@ -1,0 +1,4 @@
+# Dependências do painel de gerenciamento (Flask)
+# A preencher na implementação, ex.:
+# flask==
+# requests==

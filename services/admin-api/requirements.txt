@@ -1,0 +1,3 @@
+# Dependências da admin-api (serviço interno)
+# A preencher na implementação, ex.:
+# flask==

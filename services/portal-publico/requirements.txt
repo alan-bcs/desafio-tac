@@ -1,0 +1,5 @@
+# Dependências do portal público (Flask + leitura de QR Code)
+# A preencher na implementação, ex.:
+# flask==
+# pyzbar==
+# Pillow==
