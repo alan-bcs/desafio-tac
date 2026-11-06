@@ -1,4 +1,2 @@
-# Dependências do painel de gerenciamento (Flask)
-# A preencher na implementação, ex.:
-# flask==
-# requests==
+flask==3.0.3
+requests==2.32.3

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Painel de Gerenciamento do RU</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="barra-topo">
+    <div class="marca">UnB &mdash; <span class="sigla">SRU</span> &mdash; Painel de Gerenciamento (uso interno)</div>
+    <div class="links-topo">
+      <a href="#">Equipe RU</a>
+    </div>
+  </div>
+
+  <main>
+    <div class="cartao">
+      <div class="cabecalho-cartao">
+        <h1>Verificar integração com o Sistema Acadêmico</h1>
+      </div>
+      <div class="corpo-cartao">
+        <p class="subtitulo">
+          Testa a conectividade com serviços auxiliares durante homologação.
+          Campo de endpoint aberto para uso da equipe de infraestrutura.
+        </p>
+
+        <form action="/verificar-integracao" method="post">
+          <label for="endpoint">Endpoint a verificar</label>
+          <input type="text" id="endpoint" name="endpoint" placeholder="http://servico-interno:porta/caminho" value="{{ endpoint }}">
+          <button type="submit">Verificar integração</button>
+        </form>
+
+        {% if resultado %}
+          <label>Resultado</label>
+          <pre class="saida">{{ resultado }}</pre>
+        {% endif %}
+      </div>
+    </div>
+
+    <footer class="rodape">Painel de Gerenciamento do RU &mdash; acesso restrito à rede interna.</footer>
+  </main>
+</body>
+</html>

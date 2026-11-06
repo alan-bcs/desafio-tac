@@ -18,12 +18,14 @@ justificativa. Atualizar sempre que uma decisão mudar por feedback de playtesti
 | 10 | Porta do admin-api | `9090`, bind `127.0.0.1` apenas | Não pode vazar para fora do container |
 | 11 | Porta do portal público | `8000`, exposta no host via compose | Ponto de entrada do jogador |
 | 12 | Porta SSH | `2222` mapeada no host | Usada após a Etapa 3 |
+| 13 | Validação do campo de endpoint no painel (Etapa 3) | Bloqueio fraco: recusa string `"localhost"`, não recusa `"127.0.0.1"` | Bypass clássico de SSRF; dá uma camada extra de raciocínio sem tornar a etapa impossível |
 
 ## Flags atuais
 
 | Etapa | Local | Valor |
 |---|---|---|
 | 1 | `/home/ru_web/user.txt` | `FLAG{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}` |
+| 2 | `/home/operador_caixa/user.txt` | Ainda não definida — depende da configuração do SSH/usuário (ver pendências) |
 
 Definida em `deploy/entrypoint.sh` e usada como valor esperado em
 `tests/exploit_etapa1.py`. Atualizar os dois juntos se o valor mudar (regra 5.8).
@@ -41,13 +43,42 @@ Definida em `deploy/entrypoint.sh` e usada como valor esperado em
     (`403` em `registry-1.docker.io`). Rodar `docker compose up --build -d` em
     `deploy/` e depois `python3 tests/exploit_etapa1.py` num ambiente com acesso
     normal à internet antes de dar a Etapa 1 como fechada.
-- Etapas 2, 3 e 4: ainda não implementadas.
+- **Etapa 3 — SSRF: implementada, de forma standalone (não depende da Etapa 2).**
+  - `services/painel-gerenciamento` expõe o campo de endpoint vulnerável
+    (`/verificar-integracao`) com a validação fraca descrita na decisão #13.
+  - `services/admin-api` expõe `/admin/credenciais` sem autenticação, servindo o
+    conteúdo de `dados/chave_operador_caixa.pem` — hoje um **placeholder**, não
+    uma chave real (ver pendências).
+  - Testada em 2 camadas: lógica isolada contra a admin-api real
+    (`tests/test_ssrf_logica.py`, ✅), e `app.test_client()` do painel fazendo a
+    SSRF de verdade contra a admin-api rodando como processo real
+    (`tests/test_painel_client.py`, ✅ bloqueio de `localhost` confirmado, ✅
+    bypass via `127.0.0.1` confirmado, ✅ credencial vazada).
+  - Validado visualmente (screenshot) rodando os dois serviços localmente fora
+    do Docker — a integração final no Dockerfile/entrypoint compartilhado ainda
+    não foi feita (depende da Etapa 2 existir para fazer sentido o container
+    único).
+  - **Não valida ainda**: acesso SSH real com a chave vazada (isso é
+    propositalmente responsabilidade de quem for fazer a Etapa 2 e/ou a parte
+    de usuário/SSH da Etapa 4 — ver pendências).
+- Etapas 2 e 4: ainda não implementadas.
 
 ## Pendências para fechar durante a implementação
 
 - Caminho exato do arquivo/symlink alvo da race condition da Etapa 4 (ex.: escrita em
   `/etc/cron.d/...` vs. `/root/.ssh/authorized_keys` vs. outro alvo) — decidir ao
   implementar `privesc/`, documentando aqui depois.
-- Texto exato do payload/"dica" de homologação no campo vulnerável do painel (Seção
-  5.2 das lições anteriores: confirmar a falha, nunca nomear a técnica).
 - Conteúdo final do `# TODO` plausível a deixar no código do admin-api e do painel.
+- **Handoff Etapa 3 → Etapa 2/4 (quem for configurar o SSH do `operador_caixa`):**
+  1. Gerar o par de chaves SSH real (ex. `ssh-keygen -t ed25519 -f operador_caixa -N ""`).
+  2. Substituir o conteúdo de `services/admin-api/dados/chave_operador_caixa.pem`
+     pela chave **privada** real (nenhum código muda, só o arquivo).
+  3. Criar o usuário `operador_caixa` no container, com `/home/operador_caixa` e
+     `~/.ssh/authorized_keys` contendo a chave **pública** correspondente.
+  4. Configurar e subir o `sshd` no container, expor a porta `2222:22` no
+     `docker-compose.yml` (já deixada comentada em `deploy/docker-compose.yml`).
+  5. Criar `/home/operador_caixa/user.txt` com a flag 2 e atualizar a tabela
+     "Flags atuais" acima.
+  6. Integrar `painel-gerenciamento` e `admin-api` no `Dockerfile`/`entrypoint.sh`
+     compartilhado, com bind em `127.0.0.1` apenas (hoje os dois serviços sobem
+     soltos, em `0.0.0.0`, só para teste standalone fora do container).
