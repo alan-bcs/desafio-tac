@@ -1,0 +1,166 @@
+/* Paleta e organização inspiradas em portais acadêmicos de sistemas integrados de
+   gestão universitária (barra superior em azul-marinho, cartões com cabeçalho em
+   tom terroso, links em azul, botão de ação em verde) — sem reproduzir logos,
+   textos ou CSS de nenhum sistema real; nomes e identidade visual são fictícios
+   para o universo do desafio "Sistema de Recarga do RU". */
+
+:root {
+  --azul-marinho: #16324f;
+  --azul-marinho-escuro: #0d2033;
+  --azul-link: #1a5276;
+  --terroso: #e8d9b5;
+  --terroso-escuro: #c9b183;
+  --verde-acao: #1e7d44;
+  --verde-acao-hover: #25954f;
+  --cinza-fundo: #eef1f4;
+  --cinza-texto: #3a3a3a;
+  --vermelho-alerta: #7a2420;
+  --vermelho-alerta-fundo: #fbe4e2;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  background: var(--cinza-fundo);
+  color: var(--cinza-texto);
+  margin: 0;
+}
+
+.barra-topo {
+  background: var(--azul-marinho);
+  color: #fff;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  border-bottom: 3px solid var(--azul-marinho-escuro);
+}
+
+.barra-topo .marca {
+  font-weight: bold;
+  letter-spacing: 0.02em;
+}
+
+.barra-topo .marca span.sigla {
+  color: var(--terroso);
+}
+
+.barra-topo .links-topo a {
+  color: #fff;
+  text-decoration: none;
+  margin-left: 18px;
+  opacity: 0.85;
+}
+
+.barra-topo .links-topo a:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+main {
+  max-width: 560px;
+  margin: 48px auto;
+  padding: 0 16px;
+}
+
+.cartao {
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.cartao .cabecalho-cartao {
+  background: var(--terroso);
+  border-bottom: 1px solid var(--terroso-escuro);
+  padding: 14px 24px;
+}
+
+.cartao .cabecalho-cartao h1 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--azul-marinho);
+}
+
+.cartao .corpo-cartao {
+  padding: 24px;
+}
+
+p.subtitulo {
+  color: #555;
+  margin-top: 0;
+  font-size: 0.92rem;
+}
+
+.flash {
+  background: var(--vermelho-alerta-fundo);
+  color: var(--vermelho-alerta);
+  padding: 10px 14px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--azul-marinho);
+}
+
+input[type=file],
+input[type=text],
+input[type=password] {
+  display: block;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 8px 10px;
+  border: 1px solid #c7ccd1;
+  border-radius: 4px;
+  font-size: 0.92rem;
+}
+
+button, .botao-acao {
+  background: var(--verde-acao);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+button:hover, .botao-acao:hover {
+  background: var(--verde-acao-hover);
+}
+
+a.link-padrao {
+  color: var(--azul-link);
+  text-decoration: none;
+}
+
+a.link-padrao:hover {
+  text-decoration: underline;
+}
+
+pre.saida {
+  background: #10233a;
+  color: #d7e3ef;
+  padding: 14px;
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-size: 0.85rem;
+}
+
+footer.rodape {
+  text-align: center;
+  font-size: 0.75rem;
+  color: #8a8f94;
+  margin: 32px 0 16px;
+}

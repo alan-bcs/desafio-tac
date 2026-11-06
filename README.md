@@ -5,10 +5,6 @@ Segurança Ofensiva. Narrativa: um portal fictício da UnB para recarga de créd
 Restaurante Universitário (RU), onde o aluno faz upload da foto da carteirinha para
 leitura automática do QR Code em vez de digitar a matrícula manualmente.
 
-> Projeto standalone desta disciplina — não é o mesmo evento das máquinas anteriores
-> (Margaret, do CTF Pink Hat; Anisio, do CTF WPOS/UnB). Dificuldade alvo: **maior**
-> que as duas.
-
 ## Status
 
 🚧 Em design/implementação. Ver [`docs/decisoes.md`](docs/decisoes.md) para o estado
