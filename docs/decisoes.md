@@ -19,6 +19,30 @@ justificativa. Atualizar sempre que uma decisão mudar por feedback de playtesti
 | 11 | Porta do portal público | `8000`, exposta no host via compose | Ponto de entrada do jogador |
 | 12 | Porta SSH | `2222` mapeada no host | Usada após a Etapa 3 |
 
+## Flags atuais
+
+| Etapa | Local | Valor |
+|---|---|---|
+| 1 | `/home/ru_web/user.txt` | `FLAG{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}` |
+
+Definida em `deploy/entrypoint.sh` e usada como valor esperado em
+`tests/exploit_etapa1.py`. Atualizar os dois juntos se o valor mudar (regra 5.8).
+
+## Status de implementação
+
+- **Etapa 1 — Command Injection via QR Code: implementada.**
+  - Testada em 3 camadas (regra 5.9): lógica de decode isolada
+    (`tests/test_decode_qr.py`, ✅ 8/8 payloads sobrevivem ao ciclo QR intactos),
+    `app.test_client()` do Flask (`tests/test_app_client.py`, ✅ injection confirmada),
+    e `requirements.txt` do portal validado em venv isolado (✅ instala limpo).
+  - **Não validada em container real nesta sessão**: o build da imagem
+    (`docker compose build`) precisa puxar `python:3.11-slim` do Docker Hub, e a
+    rede desta sessão de design bloqueia esse registro por política
+    (`403` em `registry-1.docker.io`). Rodar `docker compose up --build -d` em
+    `deploy/` e depois `python3 tests/exploit_etapa1.py` num ambiente com acesso
+    normal à internet antes de dar a Etapa 1 como fechada.
+- Etapas 2, 3 e 4: ainda não implementadas.
+
 ## Pendências para fechar durante a implementação
 
 - Caminho exato do arquivo/symlink alvo da race condition da Etapa 4 (ex.: escrita em

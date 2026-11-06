@@ -1,0 +1,6 @@
+# Dependências dos scripts de teste/exploit (não entram na imagem da máquina).
+qrcode[pil]==7.4.2
+Pillow==10.4.0
+pyzbar==0.1.9
+flask==3.0.3
+requests==2.32.3

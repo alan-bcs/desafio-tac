@@ -19,12 +19,16 @@ Validar antes de considerar a máquina pronta para entrega.
 
 ## Etapa 1 — Command Injection
 
-- [ ] Payload sobrevive ao ciclo QR Code → decodificação → shell sem corrupção de
-      caracteres especiais (`;`, `|`, `` ` ``, espaços, aspas).
-- [ ] `shell=True`/`os.system` embrulha corretamente bashismos se usados
-      (`bash -c '...'`).
-- [ ] Reverse shell cai como `ru_web`, não como root.
-- [ ] Flag 1 presente e legível em `/home/ru_web/user.txt`.
+- [x] Payload sobrevive ao ciclo QR Code → decodificação → shell sem corrupção de
+      caracteres especiais (`;`, `|`, `` ` ``, espaços, aspas) — `tests/test_decode_qr.py`.
+- [x] Injeção confirmada na lógica do Flask via `app.test_client()` —
+      `tests/test_app_client.py`.
+- [x] `requirements.txt` do portal instala limpo em venv isolado.
+- [ ] **Pendente**: validar em container real (`docker compose up --build` +
+      `tests/exploit_etapa1.py`) — não foi possível nesta sessão por bloqueio de
+      rede ao Docker Hub (ver `docs/decisoes.md`).
+- [ ] Reverse shell cai como `ru_web`, não como root (confirmar no container real).
+- [ ] Flag 1 presente e legível em `/home/ru_web/user.txt` (confirmar no container real).
 
 ## Etapa 2/3 — Pivot e SSRF
 

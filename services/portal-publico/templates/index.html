@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>RU - Recarga de Créditos</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; background: #f4f6f8; color: #222; margin: 0; }
+    .container { max-width: 480px; margin: 60px auto; background: #fff; padding: 32px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    h1 { font-size: 1.4rem; color: #0b5d2e; }
+    p.subtitle { color: #555; margin-top: -8px; }
+    .flash { background: #fdecea; color: #611a15; padding: 10px 14px; border-radius: 4px; margin-bottom: 16px; }
+    label { display: block; margin-bottom: 8px; font-weight: bold; }
+    input[type=file] { display: block; margin-bottom: 20px; }
+    button { background: #0b5d2e; color: #fff; border: none; padding: 10px 18px; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #0e7a3b; }
+    footer { margin-top: 24px; font-size: 0.75rem; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Restaurante Universitário — Recarga de Créditos</h1>
+    <p class="subtitle">Envie a foto da sua carteirinha para leitura automática da matrícula via QR Code.</p>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <div class="flash">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <label for="carteirinha">Foto da carteirinha (QR Code visível)</label>
+      <input type="file" id="carteirinha" name="carteirinha" accept="image/*" required>
+      <button type="submit">Validar matrícula e recarregar</button>
+    </form>
+
+    <footer>Sistema de Recarga do RU — versão integrada com o sistema acadêmico legado.</footer>
+  </div>
+</body>
+</html>
