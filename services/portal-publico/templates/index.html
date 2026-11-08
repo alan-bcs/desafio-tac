@@ -2,43 +2,109 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
-  <title>SRU - Recarga de Créditos</title>
+  <title>Restaurante Universitário — Portal Oficial</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .secao-info {
+      margin-bottom: 24px;
+    }
+    .secao-info h2 {
+      font-size: 1.05rem;
+      color: var(--azul-marinho);
+      border-bottom: 2px solid var(--terroso);
+      padding-bottom: 6px;
+      margin-top: 0;
+    }
+    .lista-cardapio {
+      list-style: none;
+      padding-left: 0;
+      margin: 8px 0;
+    }
+    .lista-cardapio li {
+      padding: 6px 0;
+      border-bottom: 1px dashed #e0e0e0;
+      font-size: 0.9rem;
+    }
+    .horario-badge {
+      display: inline-block;
+      background: var(--terroso);
+      color: var(--azul-marinho-escuro);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      margin-left: 6px;
+    }
+    .alerta-aviso {
+      background: #fdf6e2;
+      border-left: 4px solid #f7a800;
+      padding: 12px 16px;
+      border-radius: 4px;
+      font-size: 0.88rem;
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body>
   <div class="barra-topo">
-    <div class="marca">UnB &mdash; <span class="sigla">SRU</span> &mdash; Sistema de Recarga do RU</div>
+    <div class="marca">UnB &mdash; <span class="sigla">RU</span> &mdash; Restaurante Universitário</div>
     <div class="links-topo">
-      <a href="#">Portal Público</a>
-      <a href="#">Ajuda?</a>
+      <a href="/">Início</a>
+      <a href="#cardapio">Cardápio</a>
+      <a href="#horarios">Horários</a>
     </div>
   </div>
 
-  <main>
+  <main style="max-width: 680px;">
     <div class="cartao">
       <div class="cabecalho-cartao">
-        <h1>Recarga de Créditos &mdash; Restaurante Universitário</h1>
+        <h1>Restaurante Universitário &mdash; Diretoria de Alimentação e Nutrição</h1>
       </div>
       <div class="corpo-cartao">
-        <p class="subtitulo">Envie a foto da sua carteirinha para leitura automática da matrícula via QR Code.</p>
 
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            {% for message in messages %}
-              <div class="flash">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
+        <div class="alerta-aviso">
+          <strong>📢 Comunicado Oficial:</strong> O acesso às catracas é realizado mediante identificação estudantil. O sistema de recarga presencial opera normalmente nos guichês centrais. Novas funcionalidades de autoatendimento estão em desenvolvimento interno pela equipe de TI.
+        </div>
 
-        <form action="/upload" method="post" enctype="multipart/form-data">
-          <label for="carteirinha">Foto da carteirinha (QR Code visível)</label>
-          <input type="file" id="carteirinha" name="carteirinha" accept="image/*" required>
-          <button type="submit">Validar matrícula e recarregar</button>
-        </form>
+        <div class="secao-info" id="cardapio">
+          <h2>Cardápio do Dia</h2>
+          
+          <h3 style="font-size: 0.95rem; margin-bottom: 4px; color: var(--azul-link);">
+            Almoço <span class="horario-badge">11h00 às 14h00</span>
+          </h3>
+          <ul class="lista-cardapio">
+            <li><strong>Prato Principal:</strong> Iscas de Frango Grelhado com Ervas Finas</li>
+            <li><strong>Opção Vegetariana:</strong> Escondidinho de Mandioca com Grão-de-Bico</li>
+            <li><strong>Acompanhamentos:</strong> Arroz Branco, Arroz Integral e Feijão Carioca</li>
+            <li><strong>Saladas:</strong> Mix de Folhas Verdes, Cenoura Ralada e Beterraba Cozida</li>
+            <li><strong>Sobremesa / Fruta:</strong> Laranja ou Melancia</li>
+          </ul>
+
+          <h3 style="font-size: 0.95rem; margin-top: 16px; margin-bottom: 4px; color: var(--azul-link);">
+            Jantar <span class="horario-badge">17h30 às 19h30</span>
+          </h3>
+          <ul class="lista-cardapio">
+            <li><strong>Prato Principal:</strong> Carne Moída com Legumes Selecionados</li>
+            <li><strong>Opção Vegetariana:</strong> Torta de Legumes com Aveia</li>
+            <li><strong>Acompanhamentos:</strong> Arroz Branco, Feijão Preto e Sopa Nutritiva</li>
+            <li><strong>Saladas:</strong> Tomate, Pepino e Repolho Roxo</li>
+            <li><strong>Sobremesa / Fruta:</strong> Banana</li>
+          </ul>
+        </div>
+
+        <div class="secao-info" id="horarios">
+          <h2>Horários de Funcionamento</h2>
+          <p style="font-size: 0.9rem; line-height: 1.5; margin: 6px 0;">
+            &bull; <strong>Café da Manhã:</strong> 07h00 às 08h30 (Estudantes bolsistas e residentes)<br>
+            &bull; <strong>Almoço:</strong> 11h00 às 14h00 (Comunidade acadêmica e visitantes)<br>
+            &bull; <strong>Jantar:</strong> 17h30 às 19h30 (Comunidade acadêmica e visitantes)
+          </p>
+        </div>
+
       </div>
     </div>
 
-    <footer class="rodape">Sistema de Recarga do RU &mdash; versão integrada com o sistema acadêmico legado.</footer>
+    <footer class="rodape">Diretoria de Alimentação e Nutrição &mdash; Universidade de Brasília</footer>
   </main>
 </body>
 </html>

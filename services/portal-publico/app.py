@@ -8,12 +8,13 @@ validação de matrícula do sistema acadêmico antigo.
 import os
 import uuid
 
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, flash, redirect, render_template, request, send_from_directory, url_for
 from PIL import Image, UnidentifiedImageError
 from pyzbar.pyzbar import decode
 
 UPLOAD_DIR = "/tmp/ru_uploads"
 LEGACY_SCRIPT = "/app/legacy/validar_matricula.sh"
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -35,13 +36,23 @@ def decodificar_qrcode(caminho_imagem):
     return resultados[0].data.decode("utf-8", errors="replace").strip()
 
 
-def validar_matricula_legado(matricula):
-    """Repassa a matrícula lida do QR Code para o script legado de validação.
+def validar_matricula_legado(conteudo_qrcode):
+    """Repassa os dados lidos do QR Code para o script legado de validação."""
+    if "|" in conteudo_qrcode:
+        matricula = ""
+        curso = ""
+        for campo in conteudo_qrcode.split("|"):
+            if ":" in campo:
+                k, v = campo.split(":", 1)
+                k = k.strip().upper()
+                if "MATRICULA" in k:
+                    matricula = v.strip()
+                elif "CURSO" in k:
+                    curso = v.strip()
+        comando = f"bash {LEGACY_SCRIPT} {matricula} {curso}".strip()
+    else:
+        comando = f"bash {LEGACY_SCRIPT} {conteudo_qrcode}"
 
-    Mantido por compatibilidade com a integração original do sistema acadêmico.
-    """
-    # TODO: revisar a integração com o script legado antes do próximo ciclo de produção
-    comando = f"bash {LEGACY_SCRIPT} {matricula}"
     return os.popen(comando).read()
 
 
@@ -50,12 +61,24 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/beta", methods=["GET"])
+def beta():
+    return render_template("beta.html")
+
+
+@app.route("/carterinha-teste.jpg", methods=["GET"])
+@app.route("/carteirinha-teste.jpg", methods=["GET"])
+def carterinha_teste():
+    return send_from_directory(STATIC_DIR, "carterinha-teste.jpg")
+
+
 @app.route("/upload", methods=["POST"])
+@app.route("/beta", methods=["POST"])
 def upload():
     arquivo = request.files.get("carteirinha")
     if not arquivo or arquivo.filename == "":
         flash("Selecione a foto da carteirinha antes de enviar.")
-        return redirect(url_for("index"))
+        return redirect(url_for("beta"))
 
     nome_arquivo = f"{uuid.uuid4().hex}_{arquivo.filename}"
     caminho = os.path.join(UPLOAD_DIR, nome_arquivo)
@@ -64,7 +87,7 @@ def upload():
     matricula = decodificar_qrcode(caminho)
     if matricula is None:
         flash("Não foi possível ler o QR Code da carteirinha. Tente outra foto.")
-        return redirect(url_for("index"))
+        return redirect(url_for("beta"))
 
     saida_legado = validar_matricula_legado(matricula)
 

@@ -5,15 +5,16 @@ de implementação fechados em `decisoes.md`.
 
 ## Etapa 1 — Acesso Inicial (Command Injection via QR Code)
 
-1. Jogador acessa o portal público de recarga do RU (`http://localhost:8000`).
-2. Gera um QR Code contendo um payload de reverse shell em vez de uma matrícula válida.
-3. Faz upload da "foto da carteirinha" com esse QR Code.
-4. Backend decodifica o QR Code e repassa o conteúdo sem sanitização para um comando
-   de sistema (script de "validação de matrícula legado" chamado via `shell=True` /
-   `os.system`).
-5. Reverse shell cai no listener do jogador → shell como o usuário da aplicação web
-   (`ru_web`).
-6. **Flag 1** em `/home/ru_web/user.txt`.
+1. Jogador acessa a homepage institucional do RU (`http://localhost:8000`).
+2. Faz enumeração com Gobuster e descobre o módulo experimental em `/beta` e o arquivo esquecido `/carterinha-teste.jpg`.
+3. Analisa o QR Code da carteirinha com `zbarimg` e descobre o comando de teste deixado pelos desenvolvedores:
+   `DISCENTE: CACHORRO|CPF: 000.000.000-00|MATRICULA: 00000000|NÍVEL: graduaCÃO|CURSO: CACHORRO; echo 'Leitura bem sucedida'`
+4. Ao enviar a carteirinha de teste em `/beta`, a saída confirma a execução do comando (`Leitura bem sucedida`).
+5. Jogador gera um novo QR Code substituindo o `echo` pelo payload de reverse shell.
+6. Faz upload da carteirinha maliciosa no `/beta`.
+7. Backend decodifica o QR Code e repassa o conteúdo para o script legado sem sanitização via shell.
+8. Reverse shell cai no listener do jogador → shell como o usuário da aplicação web (`ru_web`).
+9. **Flag 1** em `/home/ru_web/user.txt`.
 
 ## Etapa 2 — Enumeração e Pivot até o Painel de Gerenciamento
 

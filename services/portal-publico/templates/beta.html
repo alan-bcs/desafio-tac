@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>SRU - Recarga de Créditos [BETA]</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="barra-topo">
+    <div class="marca">UnB &mdash; <span class="sigla">SRU</span> &mdash; Sistema de Recarga do RU</div>
+    <div class="links-topo">
+      <a href="/">Portal Principal</a>
+      <a href="/beta">Módulo Beta</a>
+    </div>
+  </div>
+
+  <main>
+    <div class="cartao">
+      <div class="cabecalho-cartao">
+        <h1>Recarga de Créditos via Carteirinha [BETA]</h1>
+      </div>
+      <div class="corpo-cartao">
+        <p class="subtitulo">
+          Envie a foto da sua carteirinha estudantil (.jpg / .png) para validação cadastral automática via QR Code no sistema acadêmico.
+        </p>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="flash">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="/upload" method="post" enctype="multipart/form-data">
+          <label for="carteirinha">Foto da carteirinha estudantil (.jpg / .png com QR Code visível)</label>
+          <input type="file" id="carteirinha" name="carteirinha" accept="image/*" required>
+          <button type="submit">Validar carteirinha e consultar saldo</button>
+        </form>
+
+        <div style="margin-top: 24px; padding-top: 12px; border-top: 1px dashed #d0d7de; font-size: 0.78rem; color: #6e7781;">
+          <em>Ambiente restrito aos desenvolvedores da Diretoria de Alimentação.</em>
+          <!-- DEV_NOTE: Validando integração óptica com o script legado. Arquivo de teste gerado pela equipe de homologação: /carterinha-teste.jpg -->
+        </div>
+      </div>
+    </div>
+
+    <footer class="rodape">Sistema de Recarga do RU &mdash; versão integrada com o sistema acadêmico legado.</footer>
+  </main>
+</body>
+</html>
