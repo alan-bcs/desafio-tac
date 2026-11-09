@@ -17,7 +17,7 @@ de exploração completa.
 |---|---|---|
 | 1 — Acesso inicial | Command Injection via conteúdo de QR Code decodificado | Shell como `ru_web`, flag 1 |
 | 2 — Pivot interno | Enumeração de porta interna + túnel SSH até painel de gerenciamento | Acesso ao painel interno |
-| 3 — Exploração de serviço interno | SSRF via campo de endpoint editável no painel | Vazamento de credencial de `operador_caixa`, flag 2 |
+| 3 — Exploração de serviço interno | IDOR na API administrativa interna (enumeração de operadores por ID) | Vazamento de credencial de `operador_caixa`, flag 2 |
 | 4 — Escalação de privilégio | Race condition (symlink/TOCTOU) em job de conciliação de caixa rodando como root | Shell root, flag 3 |
 
 Cada etapa usa uma técnica distinta das demais e distinta do que já foi usado nas
@@ -30,8 +30,8 @@ máquinas anteriores da disciplina (nenhuma reutiliza sudo-argument-injection).
 ├── deploy/                      # Dockerfile, entrypoint.sh, docker-compose.yml
 ├── services/
 │   ├── portal-publico/          # App Flask pública — upload/leitura de QR Code (porta 8000, exposta)
-│   ├── painel-gerenciamento/    # Serviço interno com o campo vulnerável a SSRF (porta 8081, 127.0.0.1)
-│   └── admin-api/               # API interna sem autenticação, alvo do SSRF (porta 9090, 127.0.0.1)
+│   ├── painel-gerenciamento/    # Serviço interno de consulta de operadores (porta 8081, 127.0.0.1)
+│   └── admin-api/               # API interna sem autenticação, vulnerável a IDOR (porta 9090, 127.0.0.1)
 ├── privesc/                     # Daemon/script de "conciliação noturna de caixa" (root, intervalo 90s)
 ├── seed/
 │   └── qrcodes/                 # QR Codes de exemplo/válidos para teste manual

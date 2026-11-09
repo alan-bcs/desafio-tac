@@ -16,18 +16,18 @@
   <main>
     <div class="cartao">
       <div class="cabecalho-cartao">
-        <h1>Verificar integração com o Sistema Acadêmico</h1>
+        <h1>Consulta de Operadores / Turnos</h1>
       </div>
       <div class="corpo-cartao">
         <p class="subtitulo">
-          Testa a conectividade com serviços auxiliares durante homologação.
-          Campo de endpoint aberto para uso da equipe de infraestrutura.
+          Consulta dados cadastrais de operadores do RU para verificação de
+          turnos e perfis. Uso exclusivo da equipe de infraestrutura.
         </p>
 
-        <form action="/verificar-integracao" method="post">
-          <label for="endpoint">Endpoint a verificar</label>
-          <input type="text" id="endpoint" name="endpoint" placeholder="http://servico-interno:porta/caminho" value="{{ endpoint }}">
-          <button type="submit">Verificar integração</button>
+        <form action="/consultar-operador" method="post">
+          <label for="operador_id">ID do operador</label>
+          <input type="number" id="operador_id" name="operador_id" placeholder="Ex.: 1" min="1" value="{{ operador_id }}">
+          <button type="submit">Consultar operador</button>
         </form>
 
         {% if resultado %}

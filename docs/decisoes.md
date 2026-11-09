@@ -7,7 +7,7 @@ justificativa. Atualizar sempre que uma decisão mudar por feedback de playtesti
 | # | Decisão | Valor fechado | Justificativa |
 |---|---|---|---|
 | 1 | Formato da credencial vazada (Etapa 3) | Chave SSH privada | Mais realista para conta de operador de sistema/automação; caminho único de exploração (sem brute force de senha) |
-| 2 | Barreira no túnel (Etapa 2) | Sem barreira extra — túnel é opcional, só para visualização | SSRF funciona via `curl` direto do shell de `ru_web`; exigir cookie de sessão seria gating artificial, não realista |
+| 2 | Barreira no túnel (Etapa 2) | Sem barreira extra — túnel é opcional, só para visualização | IDOR/API funciona via `curl` direto do shell de `ru_web`; exigir cookie de sessão seria gating artificial, não realista |
 | 3 | Intervalo do job de conciliação (Etapa 4) | 90 segundos | Meio-termo entre esperar demais (2 min) e não dar tempo de reagir (1 min) |
 | 4 | Mecanismo de agendamento (Etapa 4) | Daemon/loop simulado (`while true; sleep 90`), supervisionado no `entrypoint.sh` | Cron real tem granularidade mínima de 1 min; daemon dá controle exato de 90s e facilita debug, sem denunciar ao jogador que não é cron real |
 | 5 | Tipo de race condition (Etapa 4) | Symlink TOCTOU clássico | Mais rico tecnicamente que overwrite direto; eleva a dificuldade frente a Margaret/Anisio |
@@ -18,7 +18,7 @@ justificativa. Atualizar sempre que uma decisão mudar por feedback de playtesti
 | 10 | Porta do admin-api | `9090`, bind `127.0.0.1` apenas | Não pode vazar para fora do container |
 | 11 | Porta do portal público | `8000`, exposta no host via compose | Ponto de entrada do jogador |
 | 12 | Porta SSH | `2222` mapeada no host | Usada após a Etapa 3 |
-| 13 | Validação do campo de endpoint no painel (Etapa 3) | Bloqueio fraco: recusa string `"localhost"`, não recusa `"127.0.0.1"` | Bypass clássico de SSRF; dá uma camada extra de raciocínio sem tornar a etapa impossível |
+| 13 | Mecanismo do IDOR (Etapa 3) | Consulta direta por ID sem controle de acesso horizontal | Permite a enumeração previsível de credenciais de outros operadores na API interna |
 
 ## Flags atuais
 
@@ -43,24 +43,22 @@ Definida em `deploy/entrypoint.sh` e usada como valor esperado em
     (`403` em `registry-1.docker.io`). Rodar `docker compose up --build -d` em
     `deploy/` e depois `python3 tests/exploit_etapa1.py` num ambiente com acesso
     normal à internet antes de dar a Etapa 1 como fechada.
-- **Etapa 3 — SSRF: implementada, de forma standalone (não depende da Etapa 2).**
-  - `services/painel-gerenciamento` expõe o campo de endpoint vulnerável
-    (`/verificar-integracao`) com a validação fraca descrita na decisão #13.
-  - `services/admin-api` expõe `/admin/credenciais` sem autenticação, servindo o
-    conteúdo de `dados/chave_operador_caixa.pem` — hoje um **placeholder**, não
-    uma chave real (ver pendências).
-  - Testada em 2 camadas: lógica isolada contra a admin-api real
-    (`tests/test_ssrf_logica.py`, ✅), e `app.test_client()` do painel fazendo a
-    SSRF de verdade contra a admin-api rodando como processo real
-    (`tests/test_painel_client.py`, ✅ bloqueio de `localhost` confirmado, ✅
-    bypass via `127.0.0.1` confirmado, ✅ credencial vazada).
-  - Validado visualmente (screenshot) rodando os dois serviços localmente fora
-    do Docker — a integração final no Dockerfile/entrypoint compartilhado ainda
-    não foi feita (depende da Etapa 2 existir para fazer sentido o container
-    único).
-  - **Não valida ainda**: acesso SSH real com a chave vazada (isso é
-    propositalmente responsabilidade de quem for fazer a Etapa 2 e/ou a parte
-    de usuário/SSH da Etapa 4 — ver pendências).
+- **Etapa 3 — IDOR na Admin-API: implementada.**
+  - `services/admin-api/app.py` reescrito com dicionário em memória de 3 operadores
+    (IDs 1, 2, 3). Endpoints: `GET /api/v1/operadores` (listagem sem credenciais) e
+    `GET /api/v1/operadores/<id>` (retorna objeto completo incluindo `chave_privada`
+    sem controle de autorização — IDOR). Apenas ID 3 (`operador_caixa`) possui chave
+    SSH privada; demais retornam `null`.
+  - `services/painel-gerenciamento/app.py` reescrito: rota SSRF removida, substituída
+    por `POST /consultar-operador` que faz proxy para a admin-api.
+  - Par de chaves SSH ed25519 real gerado em `services/admin-api/dados/`
+    (`chave_operador_caixa.pem` + `.pub`).
+  - Testada em 2 camadas:
+    - `tests/test_idor_logica.py` (camada 1): ✅ admin-api como processo real,
+      enumeração de IDs e extração de chave SSH sem autenticação.
+    - `tests/test_painel_client.py` (camada 2): ✅ test_client do painel +
+      admin-api real, cadeia completa painel → admin-api → credencial vazada.
+  - `tests/test_ssrf_logica.py` excluído (obsoleto).
 - Etapas 2 e 4: ainda não implementadas.
 
 ## Pendências para fechar durante a implementação
@@ -68,17 +66,13 @@ Definida em `deploy/entrypoint.sh` e usada como valor esperado em
 - Caminho exato do arquivo/symlink alvo da race condition da Etapa 4 (ex.: escrita em
   `/etc/cron.d/...` vs. `/root/.ssh/authorized_keys` vs. outro alvo) — decidir ao
   implementar `privesc/`, documentando aqui depois.
-- Conteúdo final do `# TODO` plausível a deixar no código do admin-api e do painel.
 - **Handoff Etapa 3 → Etapa 2/4 (quem for configurar o SSH do `operador_caixa`):**
-  1. Gerar o par de chaves SSH real (ex. `ssh-keygen -t ed25519 -f operador_caixa -N ""`).
-  2. Substituir o conteúdo de `services/admin-api/dados/chave_operador_caixa.pem`
-     pela chave **privada** real (nenhum código muda, só o arquivo).
-  3. Criar o usuário `operador_caixa` no container, com `/home/operador_caixa` e
-     `~/.ssh/authorized_keys` contendo a chave **pública** correspondente.
-  4. Configurar e subir o `sshd` no container, expor a porta `2222:22` no
+  1. ~~Gerar o par de chaves SSH real~~ — ✅ Feito (`services/admin-api/dados/`).
+  2. ~~Substituir o conteúdo de `chave_operador_caixa.pem`~~ — ✅ Chave ed25519 real gerada.
+  3. ~~Integrar `painel-gerenciamento` e `admin-api` no `Dockerfile`/`entrypoint.sh` compartilhado, com bind em `127.0.0.1` apenas~~ — ✅ Feito (`deploy/Dockerfile` e `deploy/entrypoint.sh`).
+  4. Criar o usuário `operador_caixa` no container, com `/home/operador_caixa` e
+     `~/.ssh/authorized_keys` contendo a chave **pública** correspondente (`chave_operador_caixa.pub`).
+  5. Configurar e subir o `sshd` no container, expor a porta `2222:22` no
      `docker-compose.yml` (já deixada comentada em `deploy/docker-compose.yml`).
-  5. Criar `/home/operador_caixa/user.txt` com a flag 2 e atualizar a tabela
+  6. Criar `/home/operador_caixa/user.txt` com a flag 2 e atualizar a tabela
      "Flags atuais" acima.
-  6. Integrar `painel-gerenciamento` e `admin-api` no `Dockerfile`/`entrypoint.sh`
-     compartilhado, com bind em `127.0.0.1` apenas (hoje os dois serviços sobem
-     soltos, em `0.0.0.0`, só para teste standalone fora do container).

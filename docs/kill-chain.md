@@ -3,6 +3,15 @@
 Documento de referência da cadeia de exploração completa. Estrutura validada; detalhes
 de implementação fechados em `decisoes.md`.
 
+## Status de Implementação da Kill Chain
+
+| Etapa | Técnica | Status | Validação / Testes |
+|---|---|---|---|
+| 1 — Acesso inicial | Command Injection via QR Code | ✅ Implementada | `tests/test_decode_qr.py` e `tests/test_app_client.py` |
+| 2 — Pivot interno | Descoberta de serviços internos | 🟡 Em progresso | Serviços integrados ao `Dockerfile` e `entrypoint.sh` |
+| 3 — Exploração de serviço interno | IDOR na API administrativa | ✅ Implementada | `tests/test_idor_logica.py` e `tests/test_painel_client.py` |
+| 4 — Escalação de privilégio | Race condition (symlink TOCTOU) | ⏳ A implementar | Especificação fechada em `decisoes.md` |
+
 ## Etapa 1 — Acesso Inicial (Command Injection via QR Code)
 
 1. Jogador acessa a homepage institucional do RU (`http://localhost:8000`).
@@ -18,44 +27,48 @@ de implementação fechados em `decisoes.md`.
 
 ## Etapa 2 — Enumeração e Pivot até o Painel de Gerenciamento
 
-7. Com shell em `ru_web`, jogador enumera portas internas (`ss -tulpn`) e encontra um
-   serviço HTTP escutando só em `127.0.0.1:8081` — o "Painel de Gerenciamento do RU"
-   (uso interno da equipe).
-8. Jogador pode abrir túnel SSH local para visualizar o painel no navegador (não é
-   tecnicamente obrigatório — o pivot da Etapa 3 também funciona via `curl` direto do
-   shell em `ru_web`; o túnel tem valor de enumeração/visualização).
-9. No painel, encontra a função "Verificar integração com o Sistema Acadêmico", com um
-   campo de endpoint editável (pensado só para testes de homologação, nunca travado).
+10. Com shell em `ru_web`, jogador enumera portas internas (`ss -tulpn`) e encontra dois
+    serviços HTTP escutando só em `127.0.0.1`:
+    - `127.0.0.1:8081` — Painel de Gerenciamento do RU (uso interno da equipe).
+    - `127.0.0.1:9090` — API administrativa de operadores.
+11. Jogador pode abrir túnel SSH local para visualizar o painel no navegador (não é
+    tecnicamente obrigatório — a exploração da Etapa 3 funciona via `curl` direto do
+    shell em `ru_web`; o túnel tem valor de enumeração/visualização).
+12. No painel, encontra a função "Consulta de Operadores / Turnos", com um campo de ID
+    para buscar dados de operadores na API interna.
 
-## Etapa 3 — SSRF até o serviço administrativo oculto
+## Etapa 3 — IDOR (Insecure Direct Object Reference)
 
-10. Jogador descobre (testando o campo, ou enumerando mais portas internas) um
-    terceiro serviço, sem autenticação nenhuma, em `127.0.0.1:9090` — API interna de
-    "gerenciamento de operadores", nunca pensada para ser exposta externamente.
-11. Jogador usa o campo vulnerável do painel para apontar pra esse serviço:
-    `endpoint=http://127.0.0.1:9090/admin/credenciais`
-12. O painel do RU faz a requisição por ele (SSRF) e devolve na tela a chave SSH
-    privada do usuário `operador_caixa`.
-13. Jogador salva a chave, ajusta permissão (`chmod 600`) e acessa via SSH
-    (`ssh -p 2222 operador_caixa@localhost -i chave`) → **Flag 2** em
+13. O jogador descobre a API administrativa (`127.0.0.1:9090`) e lista os operadores
+    cadastrados via `curl http://127.0.0.1:9090/api/v1/operadores`, que retorna IDs,
+    usuários e cargos (sem credenciais).
+14. Ao consultar cada operador individualmente via
+    `curl http://127.0.0.1:9090/api/v1/operadores/<id>`, descobre que o endpoint
+    retorna o objeto completo — incluindo o campo `chave_privada` — sem qualquer
+    controle de autorização (IDOR clássico).
+15. Iterando os IDs (1, 2, 3), encontra que o operador com ID 3 (`operador_caixa`)
+    possui uma chave SSH privada ed25519 no campo `chave_privada`.
+16. O jogador salva a chave SSH num arquivo local, atribui as permissões corretas
+    (`chmod 600`) e estabelece conexão SSH
+    (`ssh -p 2222 -i chave operador_caixa@localhost`) → **Flag 2** em
     `/home/operador_caixa/user.txt`.
 
 ## Etapa 4 — Escalação de Privilégio (Race Condition em job de conciliação)
 
-14. Como `operador_caixa`, jogador enumera o que está rodando/agendado e encontra um
+17. Como `operador_caixa`, jogador enumera o que está rodando/agendado e encontra um
     processo de "conciliação noturna de caixa do RU" rodando como `root`, a cada 90s.
-15. O script lê/escreve um arquivo temporário num diretório com permissão aberta, sem
+18. O script lê/escreve um arquivo temporário num diretório com permissão aberta, sem
     checagem segura de existência prévia (TOCTOU clássico: checa e depois abre, sem
     `O_NOFOLLOW`/sem resolver link antes).
-16. Jogador planta um symlink malicioso nesse diretório antes da próxima execução.
-17. O processo roda como root na próxima execução → o symlink é seguido → código/efeito
+19. Jogador planta um symlink malicioso nesse diretório antes da próxima execução.
+20. O processo roda como root na próxima execução → o symlink é seguido → código/efeito
     controlado pelo jogador acontece com privilégio de root.
-18. **Flag 3 (root)** em `/root/root.txt`.
+21. **Flag 3 (root)** em `/root/root.txt`.
 
 ## Variedade de técnica (requisito desta máquina)
 
 | Etapa | Técnica | Distinta de Margaret/Anisio? |
 |---|---|---|
 | 1 | Command Injection (via conteúdo de QR Code) | Sim |
-| 3 | SSRF | Sim |
+| 3 | IDOR (Insecure Direct Object Reference) | Sim |
 | 4 | Race Condition / symlink TOCTOU | Sim — nenhuma reutiliza sudo-argument-injection |

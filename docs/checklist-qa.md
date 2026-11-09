@@ -6,9 +6,9 @@ Validar antes de considerar a máquina pronta para entrega.
 
 - [ ] `docker compose up --build -d` sobe sem erros, todos os serviços saudáveis.
 - [ ] `docker compose down` derruba limpo.
-- [ ] Nenhum `--privileged`, `docker.sock` montado, ou mount sensível do host no
+- [x] Nenhum `--privileged`, `docker.sock` montado, ou mount sensível do host no
       `docker-compose.yml`.
-- [ ] Scripts de infraestrutura (`entrypoint.sh`, provisionamento) com permissão
+- [x] Scripts de infraestrutura (`entrypoint.sh`, provisionamento) com permissão
       `0700 root:root`.
 
 ## Isolamento de rede
@@ -30,13 +30,12 @@ Validar antes de considerar a máquina pronta para entrega.
 - [ ] Reverse shell cai como `ru_web`, não como root (confirmar no container real).
 - [ ] Flag 1 presente e legível em `/home/ru_web/user.txt` (confirmar no container real).
 
-## Etapa 2/3 — Pivot e SSRF
+## Etapa 2/3 — Pivot e IDOR
 
-- [ ] Túnel SSH opcional funciona, mas não é obrigatório para completar a etapa.
-- [ ] SSRF aceita o endpoint interno e retorna a credencial corretamente formatada.
-- [ ] Validação (se houver) do campo de endpoint é consistente com a dificuldade
-      pretendida (documentar bypass esperado, se aplicável).
-- [ ] Chave SSH vazada funciona para autenticar como `operador_caixa`.
+- [ ] Túnel SSH/pivot para alcançar a API interna (`9090`) ou painel restrito funciona conforme o planejado (pendente container real).
+- [x] Endpoint vulnerável a IDOR permite consultar registros/perfis de outros usuários sem validar o token/sessão do requisitante (`tests/test_idor_logica.py`).
+- [x] Enumeração de identificadores (IDs sequenciais) expõe a chave/credencial de `operador_caixa` (`tests/test_idor_logica.py` e `tests/test_painel_client.py`).
+- [ ] Chave SSH vazada funciona para autenticar como `operador_caixa` (pendente setup do sshd no container).
 - [ ] Flag 2 presente e legível em `/home/operador_caixa/user.txt`.
 
 ## Etapa 4 — Race condition
@@ -50,17 +49,17 @@ Validar antes de considerar a máquina pronta para entrega.
 
 ## Código e documentação
 
-- [ ] Nenhum comentário no código shipado descreve a vulnerabilidade ou a técnica de
+- [x] Nenhum comentário no código shipado descreve a vulnerabilidade ou a técnica de
       exploração (no máximo `# TODO` genérico e plausível).
 - [ ] Eventuais dicas confirmam a existência de uma falha, sem nomear a técnica.
 - [ ] Flags consistentes entre filesystem da imagem, script de QA (`tests/`), e
       qualquer metadado de plataforma.
-- [ ] README, kill-chain, decisões e guia de execução atualizados e consistentes
+- [x] README, kill-chain, decisões e guia de execução atualizados e consistentes
       entre si.
 
 ## Variedade de técnica
 
-- [ ] Confirmado: Command Injection, SSRF e Race Condition são tecnicamente distintas
+- [x] Confirmado: Command Injection, IDOR e Race Condition são tecnicamente distintas
       entre si.
-- [ ] Confirmado: nenhuma reutiliza sudo-argument-injection (técnica de
+- [x] Confirmado: nenhuma reutiliza sudo-argument-injection (técnica de
       Margaret/Anisio).

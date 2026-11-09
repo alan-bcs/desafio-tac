@@ -1,8 +1,7 @@
 """Painel de Gerenciamento do RU — uso interno da equipe.
 
-Acesso restrito à rede interna. Inclui a função de verificação de integração
-com o Sistema Acadêmico, usada pela equipe para testar conectividade com
-serviços auxiliares durante homologação.
+Acesso restrito à rede interna. Permite consultar dados de operadores
+cadastrados na API administrativa para verificação de turnos e perfis.
 """
 
 import requests
@@ -10,46 +9,41 @@ from flask import Flask, render_template, request
 
 app = Flask(__name__)
 
+ADMIN_API_URL = "http://127.0.0.1:9090"
 TIMEOUT_REQUISICAO = 5
-
-
-def dominio_bloqueado(endpoint):
-    """Bloqueio simples por política de homologação — recusa alguns domínios
-    textuais, mas não valida IPs/hosts equivalentes."""
-    # TODO: revisar lista de bloqueio antes de liberar este campo em produção
-    bloqueados = ("localhost",)
-    endpoint_lower = endpoint.lower()
-    return any(dominio in endpoint_lower for dominio in bloqueados)
 
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("painel.html", resultado=None, endpoint="")
+    return render_template("painel.html", resultado=None, operador_id="")
 
 
-@app.route("/verificar-integracao", methods=["POST"])
-def verificar_integracao():
-    endpoint = request.form.get("endpoint", "").strip()
+@app.route("/consultar-operador", methods=["POST"])
+def consultar_operador():
+    operador_id = request.form.get("operador_id", "").strip()
 
-    if not endpoint:
-        return render_template(
-            "painel.html", resultado="Informe um endpoint para verificar.", endpoint=endpoint
-        )
-
-    if dominio_bloqueado(endpoint):
+    if not operador_id:
         return render_template(
             "painel.html",
-            resultado="Domínio bloqueado pela política de homologação.",
-            endpoint=endpoint,
+            resultado="Informe o ID do operador para consultar.",
+            operador_id=operador_id,
         )
 
     try:
-        resposta = requests.get(endpoint, timeout=TIMEOUT_REQUISICAO)
-        resultado = f"HTTP {resposta.status_code}\n\n{resposta.text}"
+        resposta = requests.get(
+            f"{ADMIN_API_URL}/api/v1/operadores/{operador_id}",
+            timeout=TIMEOUT_REQUISICAO,
+        )
+        if resposta.status_code == 404:
+            resultado = f"Operador com ID {operador_id} não encontrado."
+        else:
+            resultado = f"HTTP {resposta.status_code}\n\n{resposta.text}"
     except requests.RequestException as erro:
-        resultado = f"Falha ao verificar integração: {erro}"
+        resultado = f"Falha ao consultar operador: {erro}"
 
-    return render_template("painel.html", resultado=resultado, endpoint=endpoint)
+    return render_template(
+        "painel.html", resultado=resultado, operador_id=operador_id
+    )
 
 
 @app.route("/healthz", methods=["GET"])
