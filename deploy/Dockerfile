@@ -19,14 +19,9 @@ RUN useradd -m -s /bin/bash ru_web \
     && useradd -m -s /bin/bash operador_caixa
 
 # --- SSH do operador de caixa ---
-RUN mkdir -p /run/sshd /home/operador_caixa/.ssh
-
-COPY services/admin-api/dados/chave_operador_caixa.pub \
-    /home/operador_caixa/.ssh/authorized_keys
-
-RUN chown -R operador_caixa:operador_caixa /home/operador_caixa/.ssh \
+RUN mkdir -p /run/sshd /home/operador_caixa/.ssh \
     && chmod 700 /home/operador_caixa/.ssh \
-    && chmod 600 /home/operador_caixa/.ssh/authorized_keys \
+    && chown operador_caixa:operador_caixa /home/operador_caixa/.ssh \
     && printf '\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\nPubkeyAuthentication yes\nAllowUsers operador_caixa\n' >> /etc/ssh/sshd_config \
     && ssh-keygen -A
 
@@ -72,6 +67,22 @@ COPY services/admin-api/requirements.txt /opt/admin-api/requirements.txt
 RUN pip install --no-cache-dir -r /opt/admin-api/requirements.txt
 
 COPY services/admin-api/ /opt/admin-api/
+
+# Par de chaves EXCLUSIVO desta imagem do CTF: nunca depende do host ou Git.
+# A API (root) le a privada; operador_caixa usa apenas a publica.
+RUN rm -f /opt/admin-api/dados/chave_operador_caixa.pem \
+          /opt/admin-api/dados/chave_operador_caixa.pem.pub \
+    && ssh-keygen -q -t ed25519 \
+         -f /opt/admin-api/dados/chave_operador_caixa.pem \
+         -N "" -C "operador_caixa@ru-ctf" \
+    && install -o operador_caixa -g operador_caixa -m 600 \
+         /opt/admin-api/dados/chave_operador_caixa.pem.pub \
+         /home/operador_caixa/.ssh/authorized_keys \
+    && chmod 600 /opt/admin-api/dados/chave_operador_caixa.pem \
+    && chown root:root /opt/admin-api/dados/chave_operador_caixa.pem \
+    && rm -f /opt/admin-api/dados/chave_operador_caixa.pem.pub \
+    && chmod 755 /opt/admin-api /opt/admin-api/dados
+
 
 # --- Painel de Gerenciamento (porta 8081) ---
 COPY services/painel-gerenciamento/requirements.txt /opt/painel/requirements.txt

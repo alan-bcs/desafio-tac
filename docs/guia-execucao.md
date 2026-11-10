@@ -168,3 +168,26 @@ A recriação descarta alterações no filesystem gravável do container (desde 
 - Auditar permissões da chave privada contra leitura direta por `ru_web`.
 - Remover comentários explicativos da TOCTOU no código distribuído.
 - Testar repetibilidade e ajustar exposição SSH para a plataforma dos jogadores.
+
+
+## Verificação do provisionamento automático (versão atual)
+
+O build gera a chave SSH automaticamente; não copie nenhum `.pem` do Kali.
+A partir da raiz do projeto:
+
+```bash
+docker compose -f deploy/docker-compose.yml up --build --force-recreate -d
+sudo docker exec ru-machine python3 -c 'import json,urllib.request; d=json.load(urllib.request.urlopen("http://127.0.0.1:9090/api/v1/operadores/3")); print("Chave presente:", d["chave_privada"].startswith("-----BEGIN OPENSSH PRIVATE KEY-----"))'
+sudo docker exec -u ru_web ru-machine sh -c 'test ! -r /opt/admin-api/dados/chave_operador_caixa.pem && echo OK'
+```
+
+Para testar o SSH **com a chave obtida da API** (somente no laboratório):
+
+```bash
+sudo docker exec ru-machine python3 -c 'import json,urllib.request; d=json.load(urllib.request.urlopen("http://127.0.0.1:9090/api/v1/operadores/3")); print(d["chave_privada"],end="")' > /tmp/ru-operador-caixa.pem
+chmod 600 /tmp/ru-operador-caixa.pem
+ssh -i /tmp/ru-operador-caixa.pem -o IdentitiesOnly=yes -p 2222 operador_caixa@127.0.0.1
+```
+
+O arquivo `/tmp/ru-operador-caixa.pem` é apenas para teste do organizador:
+remova-o depois com `rm -f /tmp/ru-operador-caixa.pem`.

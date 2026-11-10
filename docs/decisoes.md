@@ -57,3 +57,17 @@ O job root `/opt/conciliacao.py` lê `/var/ru/caixa/dados.csv`, valida que `conc
 5. Testar a cadeia completa desde a aplicação web, incluindo descoberta do painel/API e extração real da chave.
 6. Decidir se o SSH deve ficar acessível pela rede dos jogadores: o binding atual `127.0.0.1:2222` serve ao laboratório local, não necessariamente a jogadores remotos.
 7. Revisar a exposição de serviços e flags antes de publicar a imagem ou o repositório. Os valores de flag e a chave privada constam do material de desenvolvimento e não devem ser distribuídos como solução ao jogador.
+
+
+## Provisionamento de credenciais (atualização)
+
+A chave SSH de `operador_caixa` é **gerada automaticamente no Docker build**
+(`ssh-keygen -t ed25519`), em vez de ser copiada do computador do autor.
+A privada fica em `/opt/admin-api/dados/chave_operador_caixa.pem` com
+permissão `0600`, proprietário root; a pública correspondente é instalada no
+`authorized_keys` do operador. A API, iniciada como root, consegue ler a privada
+para expô-la pelo endpoint vulnerável. Não commitar `.pem`.
+O SSH está publicado em `127.0.0.1:2222` no host para testes locais.
+Os serviços HTTP internos usam bind em `127.0.0.1` **dentro do container**.
+A etapa 4 foi validada por execução de `id` como root via symlink TOCTOU;
+a leitura da flag root e o teste integrado desde o QR Code ainda estão pendentes.

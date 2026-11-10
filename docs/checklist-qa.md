@@ -68,3 +68,14 @@
 
 - [x] Técnicas distintas: command injection, falha de controle de acesso por referência direta a objeto (IDOR) e symlink TOCTOU.
 - [x] A etapa 4 não depende de sudo-argument-injection.
+
+
+## Provisionamento autossuficiente (versão atual)
+
+- [x] Dockerfile não depende de `.pem` ou `.pub` existentes no host.
+- [x] Build gera chave privada ed25519 e instala a pública correspondente para SSH.
+- [x] API e painel configurados para `127.0.0.1` dentro do container.
+- [ ] Validar em build Docker limpo que o endpoint do operador 3 retorna a chave.
+- [ ] Validar que `ru_web` não lê diretamente o arquivo `.pem`.
+- [ ] Validar login SSH com a chave retornada pela API após o novo build.
+- [ ] Testar a kill chain completa desde o QR Code até a flag root.

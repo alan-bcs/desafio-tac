@@ -70,3 +70,13 @@
 | 4 | Race condition (symlink TOCTOU) |
 
 As três técnicas são distintas e não reutilizam sudo-argument-injection.
+
+
+## Nota sobre o provisionamento (versão atual)
+
+O par de chaves de `operador_caixa` é gerado automaticamente no build Docker.
+A API expõe a chave privada correspondente ao `authorized_keys` do operador,
+sem depender de arquivos secretos no repositório. A descoberta inicial da API
+ocorre pelo shell `ru_web` dentro do container; SSH forwarding só é opcional
+**após** obter a credencial, e não é pré-requisito para a IDOR.
+A exploração TOCTOU foi validada anteriormente por execução de `id` como root.

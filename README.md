@@ -7,7 +7,7 @@ leitura automática do QR Code em vez de digitar a matrícula manualmente.
 
 ## Status
 
-🚧 Em design/implementação. Ver [`docs/decisoes.md`](docs/decisoes.md) para o estado
+Implementação das quatro etapas presente; validação integrada final ainda pendente. Ver [`docs/decisoes.md`](docs/decisoes.md) para o estado
 atual das decisões técnicas e [`docs/kill-chain.md`](docs/kill-chain.md) para a cadeia
 de exploração completa.
 
@@ -16,7 +16,7 @@ de exploração completa.
 | Etapa | Técnica | Resultado |
 |---|---|---|
 | 1 — Acesso inicial | Command Injection via conteúdo de QR Code decodificado | Shell como `ru_web`, flag 1 |
-| 2 — Pivot interno | Enumeração de porta interna + túnel SSH até painel de gerenciamento | Acesso ao painel interno |
+| 2 — Pivot interno | Enumeração e acesso aos serviços internos a partir do shell `ru_web` | Acesso ao painel interno |
 | 3 — Exploração de serviço interno | IDOR na API administrativa interna (enumeração de operadores por ID) | Vazamento de credencial de `operador_caixa`, flag 2 |
 | 4 — Escalação de privilégio | Race condition (symlink/TOCTOU) em job de conciliação de caixa rodando como root | Shell root, flag 3 |
 
@@ -26,7 +26,7 @@ máquinas anteriores da disciplina (nenhuma reutiliza sudo-argument-injection).
 ## Estrutura do repositório
 
 ```text
-03-ru/
+desafio-tac-toctou/
 ├── deploy/                      # Dockerfile, entrypoint.sh, docker-compose.yml
 ├── services/
 │   ├── portal-publico/          # App Flask pública — upload/leitura de QR Code (porta 8000, exposta)
@@ -35,11 +35,10 @@ máquinas anteriores da disciplina (nenhuma reutiliza sudo-argument-injection).
 ├── privesc/                     # Daemon/script de "conciliação noturna de caixa" (root, intervalo 90s)
 ├── seed/
 │   └── qrcodes/                 # QR Codes de exemplo/válidos para teste manual
-├── tests/                       # Script de QA/exploit automatizado end-to-end
 └── docs/                        # Decisões técnicas, guia de execução, histórico
 ```
 
-## Como rodar (assim que implementado)
+## Como rodar
 
 ```bash
 cd deploy
@@ -50,6 +49,31 @@ docker compose up --build -d
 - SSH (para `operador_caixa` após a Etapa 3): `ssh -p 2222 operador_caixa@localhost`
 
 Para derrubar: `docker compose down`.
+
+### Chaves SSH do desafio
+
+O Dockerfile gera automaticamente um **novo par ed25519 a cada build efetivo**.
+Não é necessário criar, transferir ou commitar `chave_operador_caixa.pem`.
+A API interna lê a chave privada gerada em
+`/opt/admin-api/dados/chave_operador_caixa.pem`; a chave pública correspondente
+é instalada em `/home/operador_caixa/.ssh/authorized_keys`.
+A chave privada é legível somente por root dentro da imagem; `ru_web` não deve
+conseguir lê-la diretamente. O campo `chave_privada` do endpoint do operador 3
+é o caminho intencional para obtê-la.
+
+**Importante:** o SSH está publicado apenas no loopback do host
+(`127.0.0.1:2222`). Para jogadores remotos, é preciso ajustar o mapeamento
+conforme a rede e o isolamento do evento. Não publique o serviço sem essa revisão.
+
+Para confirmar o provisionamento após subir a máquina:
+
+```bash
+sudo docker exec ru-machine python3 -c 'import json,urllib.request; d=json.load(urllib.request.urlopen("http://127.0.0.1:9090/api/v1/operadores/3")); print("Chave presente:", d["chave_privada"].startswith("-----BEGIN OPENSSH PRIVATE KEY-----"))'
+sudo docker exec -u ru_web ru-machine sh -c 'test ! -r /opt/admin-api/dados/chave_operador_caixa.pem && echo "ru_web sem leitura direta: OK"'
+```
+
+Não inclua a chave privada em commits ou ZIPs públicos: ela é gerada no build.
+
 
 ## Documentação
 
