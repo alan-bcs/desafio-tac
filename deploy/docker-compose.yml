@@ -1,10 +1,15 @@
+
 services:
   ru-machine:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+
     container_name: ru-machine
+
     ports:
-      - "8000:8000"   # Portal público (Etapa 1)
-      # - "2222:22"   # SSH para operador_caixa — habilitar quando a Etapa 3 for implementada
+      - "8000:8000"
+      - "127.0.0.1:2222:22"
+
     restart: unless-stopped
+
