@@ -1,65 +1,70 @@
-# Checklist de QA Final
+# Checklist de QA Final — Sistema de Recarga do RU
 
-Validar antes de considerar a máquina pronta para entrega.
+**Atualizado em:** 10/11/2026  
+**Legenda:** `[x]` comprovado nos testes relatados; `[ ]` pendente de validação. A implementação não equivale, por si só, a um teste de ponta a ponta.
 
 ## Build e infraestrutura
 
-- [ ] `docker compose up --build -d` sobe sem erros, todos os serviços saudáveis.
-- [ ] `docker compose down` derruba limpo.
-- [x] Nenhum `--privileged`, `docker.sock` montado, ou mount sensível do host no
-      `docker-compose.yml`.
-- [x] Scripts de infraestrutura (`entrypoint.sh`, provisionamento) com permissão
-      `0700 root:root`.
+- [x] `docker compose -f deploy/docker-compose.yml up --build -d` criou um container `ru-machine` em estado `Up`, após corrigir uma linha vazia antes do shebang de `deploy/entrypoint.sh`.
+- [x] `docker ps` mostrou as publicações `0.0.0.0:8000->8000/tcp` e `127.0.0.1:2222->22/tcp`.
+- [ ] Validar que o container permanece estável após períodos prolongados e reinícios.
+- [ ] Validar `docker compose -f deploy/docker-compose.yml down` e nova subida limpa.
+- [x] O Compose apresentado não usa `--privileged`, `docker.sock` ou mounts sensíveis.
+- [x] O Dockerfile define `/entrypoint.sh` como `0700 root:root`.
+- [ ] Confirmar a imagem final reconstruída após eventuais alterações de documentação/código.
 
 ## Isolamento de rede
 
-- [ ] Painel de gerenciamento (`8081`) e admin-api (`9090`) só respondem em
-      `127.0.0.1` dentro do container — inacessíveis da rede externa.
-- [ ] Apenas porta `8000` (portal público) e `2222` (SSH) expostas no host.
+- [x] As portas 8081 e 9090 não são publicadas no host pelo Compose atual.
+- [x] `curl http://127.0.0.1:9090/...` no Kali falhou, enquanto consulta à API executada dentro do container funcionou.
+- [ ] Confirmar com inspeção de sockets que painel e API escutam apenas em `127.0.0.1` **dentro** do container.
+- [ ] Testar ausência de acesso não pretendido pela rede Docker e por outras interfaces.
+- [ ] Para distribuição a jogadores remotos, definir conscientemente como publicar o SSH (atualmente restrito ao loopback do host).
 
-## Etapa 1 — Command Injection
+## Etapa 1 — Command Injection via QR Code
 
-- [x] Payload sobrevive ao ciclo QR Code → decodificação → shell sem corrupção de
-      caracteres especiais (`;`, `|`, `` ` ``, espaços, aspas) — `tests/test_decode_qr.py`.
-- [x] Injeção confirmada na lógica do Flask via `app.test_client()` —
-      `tests/test_app_client.py`.
-- [x] `requirements.txt` do portal instala limpo em venv isolado.
-- [ ] **Pendente**: validar em container real (`docker compose up --build` +
-      `tests/exploit_etapa1.py`) — não foi possível nesta sessão por bloqueio de
-      rede ao Docker Hub (ver `docs/decisoes.md`).
-- [ ] Reverse shell cai como `ru_web`, não como root (confirmar no container real).
-- [ ] Flag 1 presente e legível em `/home/ru_web/user.txt` (confirmar no container real).
+- [x] Testes de decodificação e lógica Flask registrados na documentação anterior (`tests/test_decode_qr.py`, `tests/test_app_client.py`).
+- [ ] Reexecutar os testes no estado final do repositório.
+- [ ] Testar upload malicioso no portal real (`:8000`) e obter shell como `ru_web`.
+- [ ] Confirmar leitura de `/home/ru_web/user.txt` por essa shell.
 
-## Etapa 2/3 — Pivot e IDOR
+## Etapa 2 — Descoberta dos serviços internos
 
-- [ ] Túnel SSH/pivot para alcançar a API interna (`9090`) ou painel restrito funciona conforme o planejado (pendente container real).
-- [x] Endpoint vulnerável a IDOR permite consultar registros/perfis de outros usuários sem validar o token/sessão do requisitante (`tests/test_idor_logica.py`).
-- [x] Enumeração de identificadores (IDs sequenciais) expõe a chave/credencial de `operador_caixa` (`tests/test_idor_logica.py` e `tests/test_painel_client.py`).
-- [ ] Chave SSH vazada funciona para autenticar como `operador_caixa` (pendente setup do sshd no container).
-- [ ] Flag 2 presente e legível em `/home/operador_caixa/user.txt`.
+- [x] API respondeu em `127.0.0.1:9090` a partir de processo dentro do container.
+- [ ] Testar descoberta das portas 8081/9090 e navegação do painel **como `ru_web`**, sem `docker exec` administrativo.
+- [ ] Verificar que o painel oferece pistas suficientes para localizar a rota de operadores, sem exigir adivinhação.
+- [ ] Confirmar que o jogador consegue extrair e transferir a chave a partir do acesso inicial.
 
-## Etapa 4 — Race condition
+## Etapa 3 — IDOR e SSH
 
-- [ ] Ciclo completo testado de ponta a ponta: plantar symlink → aguardar execução
-      (90s) → confirmar escalada.
-- [ ] Processo roda como root e herda PATH/ambiente esperado (sem falha silenciosa).
-- [ ] Exploit é reproduzível de forma consistente (não depende de timing
-      excessivamente apertado).
-- [ ] Flag 3 (root) presente e legível em `/root/root.txt`.
+- [x] `GET /api/v1/operadores/3` retornou `usuario: operador_caixa` e `chave_privada` no formato `-----BEGIN OPENSSH PRIVATE KEY-----`.
+- [x] A chave local configurada para o operador autenticou via SSH na porta `2222`.
+- [x] A sessão SSH mostrou `uid=1001(operador_caixa)` e `gid=1001(operador_caixa)`.
+- [x] A flag 2 foi lida em `/home/operador_caixa/user.txt`.
+- [ ] Comparar byte a byte a chave retornada pela API com o arquivo `.pem` local, para provar identidade exata (além da configuração esperada).
+- [ ] Verificar que `ru_web` não consegue ler diretamente `/opt/admin-api/dados/chave_operador_caixa.pem` nem acessar outras credenciais que permitam pular a IDOR.
+- [ ] Testar a cadeia completa IDOR → salvar chave **obtida da resposta** → SSH, sem reutilizar o arquivo de desenvolvimento.
+
+## Etapa 4 — Symlink TOCTOU
+
+- [x] `ps aux` na sessão SSH mostrou `python3 -u /opt/conciliacao.py` executado como root.
+- [x] `/opt/conciliacao.py` é legível por `operador_caixa`; `/opt/helper_conciliacao.sh` não é legível por esse usuário.
+- [x] `/var/ru/caixa` é gravável pelo grupo `operador_caixa`; `dados.csv` pode ser modificado e `conciliacao.tmp` substituído.
+- [x] A exploração via SSH sobrescreveu o helper por symlink e produziu `/var/ru/prova_ssh.txt` contendo `uid=0(root) gid=0(root) groups=0(root)`.
+- [x] Acesso direto a `/root/root.txt` foi negado a `operador_caixa`.
+- [ ] Demonstrar obtenção da flag root pela cadeia de exploração, sem privilégios administrativos do host.
+- [ ] Repetir o exploit após recriação limpa para avaliar consistência e timing.
+- [ ] Confirmar restauração do helper original após o teste destrutivo.
 
 ## Código e documentação
 
-- [x] Nenhum comentário no código shipado descreve a vulnerabilidade ou a técnica de
-      exploração (no máximo `# TODO` genérico e plausível).
-- [ ] Eventuais dicas confirmam a existência de uma falha, sem nomear a técnica.
-- [ ] Flags consistentes entre filesystem da imagem, script de QA (`tests/`), e
-      qualquer metadado de plataforma.
-- [x] README, kill-chain, decisões e guia de execução atualizados e consistentes
-      entre si.
+- [ ] **Remover comentários que entregam a técnica** em `privesc/conciliacao.py`, como `# Janela TOCTOU intencional` e `# Reabre o caminho, permitindo a troca por symlink`.
+- [ ] Confirmar que `privesc/demo_toctou.py` não é incluído na distribuição, caso permaneça no repositório (o Dockerfile mostrado não o copia).
+- [ ] Conferir flags entre `deploy/entrypoint.sh`, testes automatizados e metadados da plataforma.
+- [x] Documentação atualizada para registrar SSH e exploração TOCTOU efetivamente observados.
+- [ ] Playtest integral, do portal até a flag root, sem `docker exec`.
 
-## Variedade de técnica
+## Variedade de técnicas
 
-- [x] Confirmado: Command Injection, IDOR e Race Condition são tecnicamente distintas
-      entre si.
-- [x] Confirmado: nenhuma reutiliza sudo-argument-injection (técnica de
-      Margaret/Anisio).
+- [x] Técnicas distintas: command injection, falha de controle de acesso por referência direta a objeto (IDOR) e symlink TOCTOU.
+- [x] A etapa 4 não depende de sudo-argument-injection.

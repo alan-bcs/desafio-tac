@@ -1,74 +1,72 @@
 # Kill Chain — Sistema de Recarga do RU
 
-Documento de referência da cadeia de exploração completa. Estrutura validada; detalhes
-de implementação fechados em `decisoes.md`.
+**Atualizado em:** 10/11/2026. Este documento descreve a cadeia pretendida e identifica o que já foi comprovado em ambiente real.
 
-## Status de Implementação da Kill Chain
+## Status de implementação
 
-| Etapa | Técnica | Status | Validação / Testes |
+| Etapa | Técnica | Estado comprovado | Falta validar |
 |---|---|---|---|
-| 1 — Acesso inicial | Command Injection via QR Code | ✅ Implementada | `tests/test_decode_qr.py` e `tests/test_app_client.py` |
-| 2 — Pivot interno | Descoberta de serviços internos | 🟡 Em progresso | Serviços integrados ao `Dockerfile` e `entrypoint.sh` |
-| 3 — Exploração de serviço interno | IDOR na API administrativa | ✅ Implementada | `tests/test_idor_logica.py` e `tests/test_painel_client.py` |
-| 4 — Escalação de privilégio | Race condition (symlink TOCTOU) | ⏳ A implementar | Especificação fechada em `decisoes.md` |
+| 1 — Acesso inicial | Command injection via QR Code | Código e testes em camadas registrados anteriormente | Shell real `ru_web` no build final |
+| 2 — Enumeração interna | Descoberta do painel e da API | Processos internos em execução; API consultável dentro do container | Descoberta natural por `ru_web` |
+| 3 — Movimento lateral | IDOR → chave SSH → `operador_caixa` | API retorna chave; SSH com chave local funcionou; flag 2 lida | Extrair/transferir chave exclusivamente pelo caminho do jogador |
+| 4 — Privesc | Symlink TOCTOU | Execução como root confirmada via shell SSH do operador | Leitura da flag root via exploit e teste repetido |
 
-## Etapa 1 — Acesso Inicial (Command Injection via QR Code)
+## Etapa 1 — Acesso inicial: command injection no QR Code
 
-1. Jogador acessa a homepage institucional do RU (`http://localhost:8000`).
-2. Faz enumeração com Gobuster e descobre o módulo experimental em `/beta` e o arquivo esquecido `/carterinha-teste.jpg`.
-3. Analisa o QR Code da carteirinha com `zbarimg` e descobre o comando de teste deixado pelos desenvolvedores:
-   `DISCENTE: CACHORRO|CPF: 000.000.000-00|MATRICULA: 00000000|NÍVEL: graduaCÃO|CURSO: CACHORRO; echo 'Leitura bem sucedida'`
-4. Ao enviar a carteirinha de teste em `/beta`, a saída confirma a execução do comando (`Leitura bem sucedida`).
-5. Jogador gera um novo QR Code substituindo o `echo` pelo payload de reverse shell.
-6. Faz upload da carteirinha maliciosa no `/beta`.
-7. Backend decodifica o QR Code e repassa o conteúdo para o script legado sem sanitização via shell.
-8. Reverse shell cai no listener do jogador → shell como o usuário da aplicação web (`ru_web`).
-9. **Flag 1** em `/home/ru_web/user.txt`.
+1. Jogador acessa o portal público do RU (`http://ALVO:8000`).
+2. Enumera o módulo experimental `/beta` e a carteirinha de teste `/carterinha-teste.jpg`.
+3. Analisa o QR Code e identifica que conteúdo controlado pode alcançar um comando de shell do fluxo legado.
+4. Constrói e envia um QR Code que provoca execução de comando no backend.
+5. Obtém shell com privilégios do usuário `ru_web` e lê **flag 1** em `/home/ru_web/user.txt`.
 
-## Etapa 2 — Enumeração e Pivot até o Painel de Gerenciamento
+**Status:** desenho e testes de lógica anteriores; ainda não repetido ponta a ponta no container atual.
 
-10. Com shell em `ru_web`, jogador enumera portas internas (`ss -tulpn`) e encontra dois
-    serviços HTTP escutando só em `127.0.0.1`:
-    - `127.0.0.1:8081` — Painel de Gerenciamento do RU (uso interno da equipe).
-    - `127.0.0.1:9090` — API administrativa de operadores.
-11. Jogador pode abrir túnel SSH local para visualizar o painel no navegador (não é
-    tecnicamente obrigatório — a exploração da Etapa 3 funciona via `curl` direto do
-    shell em `ru_web`; o túnel tem valor de enumeração/visualização).
-12. No painel, encontra a função "Consulta de Operadores / Turnos", com um campo de ID
-    para buscar dados de operadores na API interna.
+## Etapa 2 — Enumeração dos serviços internos
 
-## Etapa 3 — IDOR (Insecure Direct Object Reference)
+6. A partir da shell `ru_web`, o jogador investiga processos, arquivos e serviços HTTP internos.
+7. Encontra painel de gerenciamento na porta `8081` e admin-API na porta `9090`, não publicadas no host.
+8. Examina o painel/rotas e identifica consultas de operadores. A API pode ser acessada diretamente por HTTP **de dentro do container**; túnel SSH não é requisito para essa etapa.
 
-13. O jogador descobre a API administrativa (`127.0.0.1:9090`) e lista os operadores
-    cadastrados via `curl http://127.0.0.1:9090/api/v1/operadores`, que retorna IDs,
-    usuários e cargos (sem credenciais).
-14. Ao consultar cada operador individualmente via
-    `curl http://127.0.0.1:9090/api/v1/operadores/<id>`, descobre que o endpoint
-    retorna o objeto completo — incluindo o campo `chave_privada` — sem qualquer
-    controle de autorização (IDOR clássico).
-15. Iterando os IDs (1, 2, 3), encontra que o operador com ID 3 (`operador_caixa`)
-    possui uma chave SSH privada ed25519 no campo `chave_privada`.
-16. O jogador salva a chave SSH num arquivo local, atribui as permissões corretas
-    (`chmod 600`) e estabelece conexão SSH
-    (`ssh -p 2222 -i chave operador_caixa@localhost`) → **Flag 2** em
-    `/home/operador_caixa/user.txt`.
+**Status:** serviços observados em `ps aux` e API consultada dentro do container; falta validar descoberta sem conhecimento prévio das rotas.
 
-## Etapa 4 — Escalação de Privilégio (Race Condition em job de conciliação)
+## Etapa 3 — IDOR e autenticação SSH
 
-17. Como `operador_caixa`, jogador enumera o que está rodando/agendado e encontra um
-    processo de "conciliação noturna de caixa do RU" rodando como `root`, a cada 90s.
-18. O script lê/escreve um arquivo temporário num diretório com permissão aberta, sem
-    checagem segura de existência prévia (TOCTOU clássico: checa e depois abre, sem
-    `O_NOFOLLOW`/sem resolver link antes).
-19. Jogador planta um symlink malicioso nesse diretório antes da próxima execução.
-20. O processo roda como root na próxima execução → o symlink é seguido → código/efeito
-    controlado pelo jogador acontece com privilégio de root.
-21. **Flag 3 (root)** em `/root/root.txt`.
+9. `GET http://127.0.0.1:9090/api/v1/operadores` enumera os IDs 1, 2 e 3.
+10. `GET /api/v1/operadores/<id>` retorna detalhes sem verificar autorização por objeto.
+11. O registro ID 3 (`operador_caixa`) contém `chave_privada`, uma chave OpenSSH ed25519.
+12. Jogador salva a chave preservando as quebras de linha, define permissão `0600` e a utiliza para autenticar como `operador_caixa` no SSH.
+13. Lê **flag 2** em `/home/operador_caixa/user.txt`.
 
-## Variedade de técnica (requisito desta máquina)
+**Status:** API respondeu com chave privada válida em formato OpenSSH; autenticação SSH com a chave de desenvolvimento funcionou e a flag 2 foi lida. A comparação exata entre chave da resposta e arquivo local e o transporte da chave a partir de `ru_web` ainda devem ser testados.
 
-| Etapa | Técnica | Distinta de Margaret/Anisio? |
-|---|---|---|
-| 1 | Command Injection (via conteúdo de QR Code) | Sim |
-| 3 | IDOR (Insecure Direct Object Reference) | Sim |
-| 4 | Race Condition / symlink TOCTOU | Sim — nenhuma reutiliza sudo-argument-injection |
+**Nota de rede:** no laboratório, SSH está publicado em `127.0.0.1:2222` no Kali. Painel e API permanecem internos. Jogadores remotos exigirão configuração de publicação compatível com a plataforma.
+
+## Etapa 4 — Escalação de privilégio por symlink TOCTOU
+
+14. Como `operador_caixa`, o jogador observa `python3 -u /opt/conciliacao.py` executando como root.
+15. Verifica que `/opt/conciliacao.py` é legível, `/opt/helper_conciliacao.sh` é protegido (`root:root`, modo `0700`) e `/var/ru/caixa` é gravável pelo grupo `operador_caixa`.
+16. O job lê o conteúdo controlável de `/var/ru/caixa/dados.csv`, valida `conciliacao.tmp` com `lstat()` e exige que seja arquivo regular.
+17. Após **15 segundos**, reabre o mesmo caminho com `open(..., 'w')`, seguindo eventual symlink colocado após a checagem.
+18. O jogador substitui `conciliacao.tmp` por um symlink para `/opt/helper_conciliacao.sh` durante a janela e provoca escrita de conteúdo controlado nesse helper.
+19. O job executa `/bin/bash /opt/helper_conciliacao.sh` como root. O teste via SSH gravou `/var/ru/prova_ssh.txt` com `uid=0(root) gid=0(root) groups=0(root)`.
+20. O objetivo final do jogador é obter **flag 3** em `/root/root.txt`; a leitura dessa flag via exploit ainda precisa ser registrada.
+
+**Temporização:** há 15 segundos entre verificação e uso, mais `sleep(90)` ao fim de cada iteração; portanto o intervalo entre inícios de ciclos normais é de aproximadamente 105 segundos, não exatamente 90.
+
+## Cuidados antes de entregar
+
+- Remover do script distribuído comentários que revelam explicitamente a TOCTOU.
+- Garantir que `ru_web` não leia diretamente a chave SSH e que as flags não estejam acessíveis por caminhos alternativos.
+- Recriar a instância após testes que sobrescrevem o helper.
+- Testar a kill chain integralmente sem `docker exec` administrativo.
+- Evitar distribuir scripts de solução ou material de desenvolvimento contendo flags/chaves junto da máquina destinada aos jogadores.
+
+## Variedade técnica
+
+| Etapa | Vulnerabilidade |
+|---|---|
+| 1 | Command injection via QR Code |
+| 3 | IDOR / ausência de autorização por objeto |
+| 4 | Race condition (symlink TOCTOU) |
+
+As três técnicas são distintas e não reutilizam sudo-argument-injection.

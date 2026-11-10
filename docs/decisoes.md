@@ -1,78 +1,59 @@
-# Histórico de Decisões Técnicas
+# Histórico de Decisões Técnicas — Sistema de Recarga do RU
 
-Tabela de decisões fechadas para a máquina "Sistema de Recarga do RU", com
-justificativa. Atualizar sempre que uma decisão mudar por feedback de playtesting
-(recalibrar tem prioridade sobre defender o plano original).
+**Atualizado em:** 10/11/2026. Este documento registra o design implementado e distingue decisões de validações realizadas.
 
-| # | Decisão | Valor fechado | Justificativa |
+| # | Decisão | Configuração atual | Justificativa / observação |
 |---|---|---|---|
-| 1 | Formato da credencial vazada (Etapa 3) | Chave SSH privada | Mais realista para conta de operador de sistema/automação; caminho único de exploração (sem brute force de senha) |
-| 2 | Barreira no túnel (Etapa 2) | Sem barreira extra — túnel é opcional, só para visualização | IDOR/API funciona via `curl` direto do shell de `ru_web`; exigir cookie de sessão seria gating artificial, não realista |
-| 3 | Intervalo do job de conciliação (Etapa 4) | 90 segundos | Meio-termo entre esperar demais (2 min) e não dar tempo de reagir (1 min) |
-| 4 | Mecanismo de agendamento (Etapa 4) | Daemon/loop simulado (`while true; sleep 90`), supervisionado no `entrypoint.sh` | Cron real tem granularidade mínima de 1 min; daemon dá controle exato de 90s e facilita debug, sem denunciar ao jogador que não é cron real |
-| 5 | Tipo de race condition (Etapa 4) | Symlink TOCTOU clássico | Mais rico tecnicamente que overwrite direto; eleva a dificuldade frente a Margaret/Anisio |
-| 6 | Quantidade/formato de flags | 3 flags simples, standalone (sem fragmento de gateway) | Trabalho de disciplina, evento diferente de Margaret/Anisio |
-| 7 | Usuário da aplicação web | `ru_web` | — |
-| 8 | Usuário pivotado via SSH | `operador_caixa` | — |
-| 9 | Porta do painel de gerenciamento | `8081`, bind `127.0.0.1` apenas | Não pode vazar para fora do container |
-| 10 | Porta do admin-api | `9090`, bind `127.0.0.1` apenas | Não pode vazar para fora do container |
-| 11 | Porta do portal público | `8000`, exposta no host via compose | Ponto de entrada do jogador |
-| 12 | Porta SSH | `2222` mapeada no host | Usada após a Etapa 3 |
-| 13 | Mecanismo do IDOR (Etapa 3) | Consulta direta por ID sem controle de acesso horizontal | Permite a enumeração previsível de credenciais de outros operadores na API interna |
+| 1 | Credencial da etapa 3 | Chave privada SSH ed25519 em `services/admin-api/dados/chave_operador_caixa.pem` | Vazamento permite autenticação como conta de automação |
+| 2 | Acesso à API interna | Consulta HTTP a partir da shell `ru_web`; túnel é opcional | Não requer SSH antes de obter a chave |
+| 3 | Intervalo da conciliação | `time.sleep(15)` dentro do job, seguido de `time.sleep(90)` ao final do ciclo | A janela TOCTOU é de 15 s; o início de ciclos normais fica separado por aproximadamente 105 s, mais tempo de processamento |
+| 4 | Agendamento | Processo Python em loop iniciado como root pelo `entrypoint.sh` | Não utiliza cron |
+| 5 | Race condition | Symlink TOCTOU sobre `/var/ru/caixa/conciliacao.tmp` | Checagem com `lstat()` e reabertura com `open(..., 'w')` após pausa |
+| 6 | Destino privilegiado | `/opt/helper_conciliacao.sh`, root:root `0700` | O job root escreve no caminho temporário e depois executa o helper com Bash |
+| 7 | Usuário web | `ru_web` | Executa o portal público |
+| 8 | Usuário SSH | `operador_caixa` | Conta não privilegiada, UID 1001 no teste |
+| 9 | Painel | Porta 8081, interna | Não publicada no Compose |
+| 10 | Admin-API | Porta 9090, interna | Não publicada no Compose |
+| 11 | Portal | Porta 8000, publicada no host | Entrada do desafio |
+| 12 | SSH | Porta 22 interna, publicada como `127.0.0.1:2222` no host | Configuração de teste local; ajustar conforme plataforma de entrega |
+| 13 | IDOR | `GET /api/v1/operadores/<id>` sem autorização por objeto | ID 3 devolve campo `chave_privada` |
+| 14 | Autenticação SSH | Somente chave pública; login root e autenticação por senha desabilitados na configuração adicionada | `authorized_keys` recebe `chave_operador_caixa.pub` |
+| 15 | Flags | Três flags independentes | A terceira é a flag root |
 
 ## Flags atuais
 
-| Etapa | Local | Valor |
+| Marco | Arquivo | Valor configurado |
 |---|---|---|
-| 1 | `/home/ru_web/user.txt` | `FLAG{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}` |
-| 2 | `/home/operador_caixa/user.txt` | Ainda não definida — depende da configuração do SSH/usuário (ver pendências) |
+| Etapa 1 | `/home/ru_web/user.txt` | `FLAG{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}` |
+| Etapa 3 | `/home/operador_caixa/user.txt` | `FLAG{RU_1d0r_ssh_operador_6b2f9a}` |
+| Etapa 4 | `/root/root.txt` | `FLAG{RU_t0ct0u_syml1nk_r00t_9c4e2b}` |
 
-Definida em `deploy/entrypoint.sh` e usada como valor esperado em
-`tests/exploit_etapa1.py`. Atualizar os dois juntos se o valor mudar (regra 5.8).
+A flag do operador foi lida em uma sessão SSH real. A flag root foi provisionada e sua leitura direta foi negada ao operador; sua recuperação **via exploit** ainda não foi demonstrada no teste relatado.
 
-## Status de implementação
+## Estado de implementação e evidências
 
-- **Etapa 1 — Command Injection via QR Code: implementada.**
-  - Testada em 3 camadas (regra 5.9): lógica de decode isolada
-    (`tests/test_decode_qr.py`, ✅ 8/8 payloads sobrevivem ao ciclo QR intactos),
-    `app.test_client()` do Flask (`tests/test_app_client.py`, ✅ injection confirmada),
-    e `requirements.txt` do portal validado em venv isolado (✅ instala limpo).
-  - **Não validada em container real nesta sessão**: o build da imagem
-    (`docker compose build`) precisa puxar `python:3.11-slim` do Docker Hub, e a
-    rede desta sessão de design bloqueia esse registro por política
-    (`403` em `registry-1.docker.io`). Rodar `docker compose up --build -d` em
-    `deploy/` e depois `python3 tests/exploit_etapa1.py` num ambiente com acesso
-    normal à internet antes de dar a Etapa 1 como fechada.
-- **Etapa 3 — IDOR na Admin-API: implementada.**
-  - `services/admin-api/app.py` reescrito com dicionário em memória de 3 operadores
-    (IDs 1, 2, 3). Endpoints: `GET /api/v1/operadores` (listagem sem credenciais) e
-    `GET /api/v1/operadores/<id>` (retorna objeto completo incluindo `chave_privada`
-    sem controle de autorização — IDOR). Apenas ID 3 (`operador_caixa`) possui chave
-    SSH privada; demais retornam `null`.
-  - `services/painel-gerenciamento/app.py` reescrito: rota SSRF removida, substituída
-    por `POST /consultar-operador` que faz proxy para a admin-api.
-  - Par de chaves SSH ed25519 real gerado em `services/admin-api/dados/`
-    (`chave_operador_caixa.pem` + `.pub`).
-  - Testada em 2 camadas:
-    - `tests/test_idor_logica.py` (camada 1): ✅ admin-api como processo real,
-      enumeração de IDs e extração de chave SSH sem autenticação.
-    - `tests/test_painel_client.py` (camada 2): ✅ test_client do painel +
-      admin-api real, cadeia completa painel → admin-api → credencial vazada.
-  - `tests/test_ssrf_logica.py` excluído (obsoleto).
-- Etapas 2 e 4: ainda não implementadas.
+### Etapa 1 — Command Injection
 
-## Pendências para fechar durante a implementação
+O portal e seus testes unitários/de integração Flask constam da versão anterior da documentação. A cadeia de QR Code até uma shell real `ru_web` ainda deve ser revalidada no container atual.
 
-- Caminho exato do arquivo/symlink alvo da race condition da Etapa 4 (ex.: escrita em
-  `/etc/cron.d/...` vs. `/root/.ssh/authorized_keys` vs. outro alvo) — decidir ao
-  implementar `privesc/`, documentando aqui depois.
-- **Handoff Etapa 3 → Etapa 2/4 (quem for configurar o SSH do `operador_caixa`):**
-  1. ~~Gerar o par de chaves SSH real~~ — ✅ Feito (`services/admin-api/dados/`).
-  2. ~~Substituir o conteúdo de `chave_operador_caixa.pem`~~ — ✅ Chave ed25519 real gerada.
-  3. ~~Integrar `painel-gerenciamento` e `admin-api` no `Dockerfile`/`entrypoint.sh` compartilhado, com bind em `127.0.0.1` apenas~~ — ✅ Feito (`deploy/Dockerfile` e `deploy/entrypoint.sh`).
-  4. Criar o usuário `operador_caixa` no container, com `/home/operador_caixa` e
-     `~/.ssh/authorized_keys` contendo a chave **pública** correspondente (`chave_operador_caixa.pub`).
-  5. Configurar e subir o `sshd` no container, expor a porta `2222:22` no
-     `docker-compose.yml` (já deixada comentada em `deploy/docker-compose.yml`).
-  6. Criar `/home/operador_caixa/user.txt` com a flag 2 e atualizar a tabela
-     "Flags atuais" acima.
+### Etapa 2 — Serviços internos
+
+Os processos de painel (`/opt/painel/app.py`) e API (`/opt/admin-api/app.py`) apareceram em `ps aux`. Uma requisição HTTP feita **de dentro** do container retornou dados do operador 3; no Kali, `127.0.0.1:9090` não respondeu, como esperado para porta não publicada. Falta playtest da descoberta natural dessas rotas por `ru_web`.
+
+### Etapa 3 — IDOR e SSH
+
+A API retorna três operadores em endpoints de listagem/detalhe e, no detalhe do ID 3, inclui a chave privada OpenSSH. Foi gerado um par ed25519 para a conta `operador_caixa`; a chave pública foi instalada em `/home/operador_caixa/.ssh/authorized_keys`. O Dockerfile instala `openssh-server`, o entrypoint inicia `sshd` e o Compose publica `127.0.0.1:2222:22`. Login SSH bem-sucedido como UID 1001 e leitura da flag do operador confirmados. A identidade byte a byte entre resposta da API e arquivo local é esperada pelo código, mas o teste `cmp` sugerido ainda não foi apresentado.
+
+### Etapa 4 — TOCTOU
+
+O job root `/opt/conciliacao.py` lê `/var/ru/caixa/dados.csv`, valida que `conciliacao.tmp` é regular via `lstat()`, espera 15 segundos e reabre o mesmo caminho para escrita. Como `operador_caixa` controla o diretório, pode trocar o arquivo por symlink para `/opt/helper_conciliacao.sh`, que o job executa depois. O teste realizado exclusivamente via shell SSH criou `/var/ru/prova_ssh.txt` com `uid=0(root) gid=0(root) groups=0(root)`. Isso demonstra execução de comandos como root, não uma shell root interativa nem a leitura da flag final.
+
+## Pendências antes de distribuir
+
+1. Recriar o container para restaurar o helper após o teste de overwrite e confirmar estado limpo.
+2. Remover os comentários explícitos sobre TOCTOU do script distribuído.
+3. Auditar permissões: `ru_web` não deve ler a chave privada diretamente; conferir também caminhos alternativos para as flags.
+4. Repetir a exploração da etapa 4 e comprovar recuperação da flag root.
+5. Testar a cadeia completa desde a aplicação web, incluindo descoberta do painel/API e extração real da chave.
+6. Decidir se o SSH deve ficar acessível pela rede dos jogadores: o binding atual `127.0.0.1:2222` serve ao laboratório local, não necessariamente a jogadores remotos.
+7. Revisar a exposição de serviços e flags antes de publicar a imagem ou o repositório. Os valores de flag e a chave privada constam do material de desenvolvimento e não devem ser distribuídos como solução ao jogador.
