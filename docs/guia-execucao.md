@@ -36,7 +36,7 @@ sudo docker compose -f deploy/docker-compose.yml down
 1. Acessar `http://127.0.0.1:8000`.
 2. Enumerar `/beta` e o recurso de carteirinha de teste `/carterinha-teste.jpg` conforme a kill chain.
 3. Verificar o comportamento do QR Code e a execução de comandos pelo script legado.
-4. No teste autorizado, confirmar obtenção de shell como `ru_web` e leitura de `/home/ru_web/user.txt`.
+4. No teste autorizado, confirmar obtenção de shell como `ru_web` e leitura de `/home/ru_web/user_ru_web.txt`.
 
 Os testes históricos `tests/test_decode_qr.py` e `tests/test_app_client.py` cobrem camadas isoladas. **A shell real via QR Code ainda não foi revalidada nesta rodada.**
 
@@ -89,7 +89,7 @@ ssh -i services/admin-api/dados/chave_operador_caixa.pem \
   -o IdentitiesOnly=yes -p 2222 operador_caixa@127.0.0.1
 ```
 
-O teste realizado autenticou como UID 1001 e permitiu `cat ~/user.txt`, exibindo a flag 2. **Ainda falta validar o transporte da chave efetivamente extraída da API até o Kali**, sem recorrer à cópia de desenvolvimento.
+O teste realizado autenticou como UID 1001 e permitiu `cat ~/user_operador.txt`, exibindo a flag 2. **Ainda falta validar o transporte da chave efetivamente extraída da API até o Kali**, sem recorrer à cópia de desenvolvimento.
 
 Port forwarding SSH é **opcional e posterior** à obtenção da chave, para inspeção do serviço interno:
 

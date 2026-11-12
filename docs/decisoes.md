@@ -24,8 +24,8 @@
 
 | Marco | Arquivo | Valor configurado |
 |---|---|---|
-| Etapa 1 | `/home/ru_web/user.txt` | `FLAG{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}` |
-| Etapa 3 | `/home/operador_caixa/user.txt` | `FLAG{RU_1d0r_ssh_operador_6b2f9a}` |
+| Etapa 1 | `/home/ru_web/user_ru_web.txt` | `FLAG{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}` |
+| Etapa 3 | `/home/operador_caixa/user_operador.txt` | `FLAG{RU_1d0r_ssh_operador_6b2f9a}` |
 | Etapa 4 | `/root/root.txt` | `FLAG{RU_t0ct0u_syml1nk_r00t_9c4e2b}` |
 
 A flag do operador foi lida em uma sessão SSH real. A flag root foi provisionada e sua leitura direta foi negada ao operador; sua recuperação **via exploit** ainda não foi demonstrada no teste relatado.

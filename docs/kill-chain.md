@@ -83,7 +83,7 @@ flowchart TD
    * Faz upload da imagem no formulário `/beta`.
    * Recebe a shell como `ru_web` e lê a **Flag 1**:
      ```bash
-     cat /home/ru_web/user.txt
+     cat /home/ru_web/user_ru_web.txt
      ```
 
 ---
@@ -128,7 +128,7 @@ flowchart TD
     ```
 12. Lê a **Flag 2**:
     ```bash
-    cat /home/operador_caixa/user.txt
+    cat /home/operador_caixa/user_operador.txt
     ```
 
 ---
