@@ -16,11 +16,26 @@ RUN apt-get update \
         procps \
         curl \
         net-tools \
+        ncurses-term \
+        nano \
+        less \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Usuarios ---
 RUN useradd -m -s /bin/bash ru_web \
     && useradd -m -s /bin/bash operador_caixa
+
+# --- Configuracao de terminal e shell interativa ---
+RUN echo "export TERM=xterm-256color" >> /etc/environment \
+    && echo "export SHELL=/bin/bash" >> /etc/environment \
+    && echo "export TERM=xterm-256color" >> /etc/profile \
+    && echo "export SHELL=/bin/bash" >> /etc/profile \
+    && printf '\nexport TERM=xterm-256color\nexport SHELL=/bin/bash\nalias ll="ls -la --color=auto"\nalias ls="ls --color=auto"\n' >> /etc/bash.bashrc \
+    && printf '\nexport TERM=xterm-256color\nexport SHELL=/bin/bash\nalias ll="ls -la --color=auto"\nalias ls="ls --color=auto"\n' >> /home/ru_web/.bashrc \
+    && printf '\nexport TERM=xterm-256color\nexport SHELL=/bin/bash\nalias ll="ls -la --color=auto"\nalias ls="ls --color=auto"\n' >> /home/operador_caixa/.bashrc \
+    && printf '\nexport TERM=xterm-256color\nexport SHELL=/bin/bash\nalias ll="ls -la --color=auto"\nalias ls="ls --color=auto"\n' >> /root/.bashrc \
+    && chown ru_web:ru_web /home/ru_web/.bashrc \
+    && chown operador_caixa:operador_caixa /home/operador_caixa/.bashrc
 
 # --- SSH do operador de caixa ---
 RUN mkdir -p /run/sshd /home/operador_caixa/.ssh \
