@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # --- Flag da Etapa 1 ---
-FLAG1="FLAG{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}"
+FLAG1="TAC{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}"
 
 printf '%s\n' "$FLAG1" > /home/ru_web/user_ru_web.txt
 ln -sf /home/ru_web/user_ru_web.txt /home/ru_web/user.txt
@@ -14,7 +14,7 @@ chown -h ru_web:ru_web /home/ru_web/user_ru_web.txt /home/ru_web/user.txt
 chmod 440 /home/ru_web/user_ru_web.txt
 
 # --- Flag da Etapa 3 ---
-FLAG2="FLAG{RU_1d0r_ssh_operador_6b2f9a}"
+FLAG2="TAC{RU_1d0r_ssh_operador_6b2f9a}"
 
 printf '%s\n' "$FLAG2" > /home/operador_caixa/user_operador.txt
 ln -sf /home/operador_caixa/user_operador.txt /home/operador_caixa/user.txt
@@ -22,7 +22,7 @@ chown -h operador_caixa:operador_caixa /home/operador_caixa/user_operador.txt /h
 chmod 400 /home/operador_caixa/user_operador.txt
 
 # --- Flag root (Etapa 4) ---
-FLAG_ROOT="FLAG{RU_t0ct0u_syml1nk_r00t_9c4e2b}"
+FLAG_ROOT="TAC{RU_t0ct0u_syml1nk_r00t_9c4e2b}"
 
 mkdir -p /root
 printf '%s\n' "$FLAG_ROOT" > /root/root.txt

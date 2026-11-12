@@ -39,10 +39,10 @@ flowchart TD
 
 | Etapa | Usuário | Técnica / Vulnerabilidade | Alvo / Vetor | Flag |
 | :--- | :--- | :--- | :--- | :--- |
-| **1 — Acesso Inicial** | `ru_web` | **Command Injection** via QR Code | Upload da carteirinha estudantil em `/beta` | `FLAG{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}` |
+| **1 — Acesso Inicial** | `ru_web` | **Command Injection** via QR Code | Upload da carteirinha estudantil em `/beta` | `TAC{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}` |
 | **2 — Pivot** | `ru_web` | **Enumeração de Rede Local** | Inspeção de portas e processos internos via `ss -tulpn` | — |
-| **3 — Movimento Lateral** | `operador_caixa` | **IDOR (Insecure Direct Object Reference)** | Consulta sem autorização em `127.0.0.1:9090/api/v1/operadores/3` | `FLAG{RU_1d0r_ssh_operador_6b2f9a}` |
-| **4 — PrivEsc** | `root` | **Race Condition (Symlink TOCTOU)** | Janela de 15s no job root `/opt/conciliacao.py` | `FLAG{RU_t0ct0u_syml1nk_r00t_9c4e2b}` |
+| **3 — Movimento Lateral** | `operador_caixa` | **IDOR (Insecure Direct Object Reference)** | Consulta sem autorização em `127.0.0.1:9090/api/v1/operadores/3` | `TAC{RU_1d0r_ssh_operador_6b2f9a}` |
+| **4 — PrivEsc** | `root` | **Race Condition (Symlink TOCTOU)** | Janela de 15s no job root `/opt/conciliacao.py` | `TAC{RU_t0ct0u_syml1nk_r00t_9c4e2b}` |
 
 ---
 
@@ -188,6 +188,6 @@ flowchart TD
 
 ## 4. Resumo das Flags
 
-* **Flag 1 (`ru_web`):** `FLAG{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}`
-* **Flag 2 (`operador_caixa`):** `FLAG{RU_1d0r_ssh_operador_6b2f9a}`
-* **Flag 3 (`root`):** `FLAG{RU_t0ct0u_syml1nk_r00t_9c4e2b}`
+* **Flag 1 (`ru_web`):** `TAC{RU_qr_c0de_nao_e_so_pra_leitura_7f3a1c}`
+* **Flag 2 (`operador_caixa`):** `TAC{RU_1d0r_ssh_operador_6b2f9a}`
+* **Flag 3 (`root`):** `TAC{RU_t0ct0u_syml1nk_r00t_9c4e2b}`

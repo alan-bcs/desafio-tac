@@ -13,6 +13,10 @@ venv/
 # Docker
 *.log
 
+# Wordlists e testes
+common.txt
+*.wordlist
+
 # SO / editores
 .DS_Store
 *.swp

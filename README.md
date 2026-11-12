@@ -61,9 +61,7 @@ A chave privada é legível somente por root dentro da imagem; `ru_web` não dev
 conseguir lê-la diretamente. O campo `chave_privada` do endpoint do operador 3
 é o caminho intencional para obtê-la.
 
-**Importante:** o SSH está publicado apenas no loopback do host
-(`127.0.0.1:2222`). Para jogadores remotos, é preciso ajustar o mapeamento
-conforme a rede e o isolamento do evento. Não publique o serviço sem essa revisão.
+**Rede e Portas:** o SSH está publicado na porta host `2222` e o Portal Web na porta `8000`, permitindo conexões diretas tanto em localhost quanto através da rede local pelos demais participantes da disciplina.
 
 Para confirmar o provisionamento após subir a máquina:
 

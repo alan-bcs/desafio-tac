@@ -1,0 +1,24 @@
+# ==============================================================================
+# Docker Compose de Distribuição — CTF Sistema de Recarga do RU (03-ru)
+# Disciplina: Segurança Ofensiva (TAC / UnB)
+#
+# Instruções:
+# 1. Certifique-se de que o Docker e Docker Compose estão instalados.
+# 2. Execute para iniciar o desafio:
+#       docker compose up -d
+# 3. Para parar o desafio:
+#       docker compose down
+#
+# Serviços Expostos:
+#   - 8000/TCP: Portal Web do RU (Ponto de entrada)
+#   - 2222/TCP: Serviço SSH
+# ==============================================================================
+
+services:
+  ru-machine:
+    image: ${DOCKER_IMAGE:-desafiotac/ru-machine:1.0}
+    container_name: ru-machine
+    ports:
+      - "8000:8000"
+      - "2222:22"
+    restart: unless-stopped
