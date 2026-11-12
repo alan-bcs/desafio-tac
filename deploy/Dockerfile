@@ -12,6 +12,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libzbar0 \
         openssh-server \
+        iproute2 \
+        procps \
+        curl \
+        net-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Usuarios ---
