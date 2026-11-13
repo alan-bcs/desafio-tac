@@ -36,7 +36,7 @@ Sua missão como pentester é auditar a segurança desse novo ecossistema: explo
 ### **Como Executar o Desafio:**
 
 #### 1. Imagem Docker Oficial:
-* **Docker Hub:** `desafiotac/ru-machine:1.0` *(ou ghcr.io/<usuario>/ru-machine:1.0)*
+* **Docker Hub:** `leanddro13/ru-machine:1.0` *(ou ghcr.io/<usuario>/ru-machine:1.0)*
 * **Arquitetura:** `linux/amd64`
 
 #### 2. Arquivo `docker-compose.yml` de Distribuição:
