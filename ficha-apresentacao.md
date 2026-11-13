@@ -45,7 +45,7 @@ Crie um arquivo `docker-compose.yml` com o conteúdo abaixo:
 ```yaml
 services:
   ru-machine:
-    image: desafiotac/ru-machine:1.0
+    image: leanddro13/ru-machine:1.0
     container_name: ru-machine
     ports:
       - "8000:8000"

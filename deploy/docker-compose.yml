@@ -1,15 +1,8 @@
-
 services:
   ru-machine:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
-
+    image: leanddro13/ru-machine:1.0
     container_name: ru-machine
-
     ports:
       - "8000:8000"
       - "2222:22"
-
     restart: unless-stopped
-
